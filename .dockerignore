@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+.DS_Store
+.codegraph
+.omo
+bin
+data
+coverage.out
+*.test
