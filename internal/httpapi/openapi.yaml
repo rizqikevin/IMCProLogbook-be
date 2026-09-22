@@ -1,0 +1,581 @@
+openapi: "3.0.3"
+info:
+  title: Machine Logbook Archive API
+  version: "1.0.0"
+  description: |
+    Backend untuk arsip foto logbook mesin produksi.
+
+    **Auth**: Semua endpoint (kecuali `/health/*`, `/docs/*`, dan `POST /api/v1/auth/login`) memerlukan header:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    Token didapat dari response `POST /api/v1/auth/login`.
+
+servers:
+  - url: http://localhost:8080
+    description: Development
+
+tags:
+  - name: Health
+    description: Liveness dan readiness probe
+  - name: Auth
+    description: Login, logout, dan info user saat ini
+  - name: Reference
+    description: Data master mesin dan shift
+  - name: Logbooks
+    description: CRUD logbook dan upload foto
+
+# ─── Security scheme ──────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+
+  # ─── Reusable schemas ───────────────────────────────────────────────────────
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:    { type: string, example: not_found }
+            message: { type: string, example: resource not found }
+            request_id: { type: string, example: "550e8400-e29b-41d4-a716-446655440000" }
+
+    Machine:
+      type: object
+      properties:
+        id:   { type: integer, example: 1 }
+        name: { type: string,  example: "MAILENDER 222" }
+
+    Shift:
+      type: object
+      properties:
+        id:   { type: integer, example: 1 }
+        name: { type: string,  example: "Shift 1" }
+
+    User:
+      type: object
+      properties:
+        id:       { type: string, format: uuid }
+        username: { type: string, example: operator1 }
+        name:     { type: string, example: "Budi Santoso" }
+        role:     { type: string, enum: [operator, admin] }
+        active:   { type: boolean }
+
+    Photo:
+      type: object
+      properties:
+        id:           { type: string, format: uuid }
+        page_number:  { type: integer, example: 1 }
+        content_type: { type: string, example: "image/jpeg" }
+        size:         { type: integer, example: 524288 }
+        sha256:       { type: string, example: "abc123..." }
+        uploaded_by:  { type: string, format: uuid }
+        created_at:   { type: string, format: date-time }
+        url:          { type: string, example: "/api/v1/logbooks/{id}/photos/{photoID}" }
+
+    Logbook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        machine:
+          $ref: '#/components/schemas/Machine'
+        log_date:
+          type: string
+          format: date
+          example: "2026-09-22"
+        shift:
+          $ref: '#/components/schemas/Shift'
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        photo_count:
+          type: integer
+          example: 3
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+
+    Page:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Logbook'
+        next_cursor:
+          type: string
+          description: Opaque base64 cursor. Kosong jika tidak ada halaman berikutnya.
+          example: ""
+
+# ─── Global security (semua endpoint kecuali yang di-override) ────────────────
+security:
+  - bearerAuth: []
+
+# ─── Paths ────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Selalu 200 jika proses berjalan.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: 200 jika database dan storage siap, 503 jika belum.
+      security: []
+      responses:
+        "200":
+          description: Siap melayani request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+        "503":
+          description: Service belum siap
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: |
+        Kembalikan Bearer token. Token disimpan dan digunakan di header `Authorization`.
+
+        Rate limit: **10 percobaan per menit per IP**. Melewati batas → HTTP 429.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  example: "password123456"
+            example:
+              username: admin
+              password: "password123456"
+      responses:
+        "200":
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "ZqX2n7..."
+                  token_type:
+                    type: string
+                    example: Bearer
+                  expires_at:
+                    type: string
+                    format: date-time
+                  user:
+                    $ref: '#/components/schemas/User'
+        "401":
+          description: Username atau password salah
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "429":
+          description: Terlalu banyak percobaan login
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Hapus session saat ini. Token tidak bisa dipakai lagi setelah ini.
+      responses:
+        "204":
+          description: Logout berhasil, tidak ada body
+        "401":
+          description: Token tidak valid atau sudah expired
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Info user saat ini
+      description: Kembalikan data user berdasarkan token yang dipakai.
+      responses:
+        "200":
+          description: Data user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        "401":
+          description: Token tidak valid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ── Reference data ──────────────────────────────────────────────────────────
+  /api/v1/machines:
+    get:
+      tags: [Reference]
+      summary: Daftar mesin aktif
+      description: |
+        Kembalikan semua mesin yang aktif.
+
+        Mesin awal: MAILENDER 222, MS3, COATING 1, COATING 2, COATING 3.
+      responses:
+        "200":
+          description: Daftar mesin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Machine' }
+              example:
+                items:
+                  - { id: 1, name: "MAILENDER 222" }
+                  - { id: 2, name: "MS3" }
+                  - { id: 3, name: "COATING 1" }
+                  - { id: 4, name: "COATING 2" }
+                  - { id: 5, name: "COATING 3" }
+
+  /api/v1/shifts:
+    get:
+      tags: [Reference]
+      summary: Daftar shift aktif
+      description: Kembalikan semua shift yang aktif (Shift 1, Shift 2, Shift 3).
+      responses:
+        "200":
+          description: Daftar shift
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Shift' }
+              example:
+                items:
+                  - { id: 1, name: "Shift 1" }
+                  - { id: 2, name: "Shift 2" }
+                  - { id: 3, name: "Shift 3" }
+
+  # ── Logbooks ────────────────────────────────────────────────────────────────
+  /api/v1/logbooks:
+    get:
+      tags: [Logbooks]
+      summary: List logbook (dengan pagination)
+      description: |
+        Kembalikan daftar logbook dengan cursor-based pagination.
+
+        Filter opsional: `machine_id`, `shift_id`, `date_from`, `date_to`.
+
+        Untuk halaman berikutnya, kirim nilai `next_cursor` dari response sebelumnya ke parameter `cursor`.
+      parameters:
+        - name: machine_id
+          in: query
+          description: Filter berdasarkan ID mesin
+          schema: { type: integer, example: 1 }
+        - name: shift_id
+          in: query
+          description: Filter berdasarkan ID shift
+          schema: { type: integer, example: 2 }
+        - name: date_from
+          in: query
+          description: "Tanggal mulai (format: YYYY-MM-DD)"
+          schema: { type: string, format: date, example: "2026-09-01" }
+        - name: date_to
+          in: query
+          description: "Tanggal akhir (format: YYYY-MM-DD)"
+          schema: { type: string, format: date, example: "2026-09-22" }
+        - name: cursor
+          in: query
+          description: Opaque cursor dari field `next_cursor` response sebelumnya
+          schema: { type: string }
+        - name: limit
+          in: query
+          description: Jumlah item per halaman (1-100, default 20)
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Halaman logbook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Page' }
+        "400":
+          description: Parameter query tidak valid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    post:
+      tags: [Logbooks]
+      summary: Buat logbook baru + upload foto
+      description: |
+        Buat entry logbook baru sekaligus upload foto-foto halaman logbook.
+
+        Request menggunakan `multipart/form-data`:
+        - Field teks: `machine_id`, `log_date`, `shift_id`
+        - File field: `photos` (bisa multiple, nama field harus **photos**)
+
+        **Format foto**: JPEG, PNG, atau WebP.
+        **Ukuran**: maksimal 10 MB per foto.
+        **Jumlah**: maksimal 20 foto per upload.
+
+        Kombinasi `machine_id + log_date + shift_id` harus unik. Jika sudah ada → HTTP 409.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [machine_id, log_date, shift_id, photos]
+              properties:
+                machine_id:
+                  type: integer
+                  description: ID mesin (dari GET /api/v1/machines)
+                  example: 1
+                log_date:
+                  type: string
+                  format: date
+                  description: Tanggal logbook (YYYY-MM-DD)
+                  example: "2026-09-22"
+                shift_id:
+                  type: integer
+                  description: ID shift (dari GET /api/v1/shifts)
+                  example: 1
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: File foto logbook (JPEG/PNG/WebP)
+      responses:
+        "201":
+          description: Logbook berhasil dibuat
+          headers:
+            Location:
+              description: URL logbook yang baru dibuat
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Logbook' }
+        "400":
+          description: Input tidak valid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "409":
+          description: Logbook untuk mesin+tanggal+shift ini sudah ada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "413":
+          description: Body request terlalu besar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "503":
+          description: Slot upload penuh, coba lagi sebentar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/logbooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: UUID logbook
+        schema: { type: string, format: uuid }
+
+    get:
+      tags: [Logbooks]
+      summary: Detail logbook + semua foto
+      description: Kembalikan logbook beserta list URL semua foto halaman.
+      responses:
+        "200":
+          description: Detail logbook
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Logbook' }
+        "404":
+          description: Logbook tidak ditemukan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    delete:
+      tags: [Logbooks]
+      summary: Hapus logbook (admin only)
+      description: |
+        Hapus logbook beserta semua foto-nya.
+
+        **Hanya bisa dilakukan oleh user dengan role `admin`.**
+
+        Foto di storage dihapus secara async oleh background worker.
+      responses:
+        "204":
+          description: Logbook berhasil dihapus
+        "403":
+          description: Bukan admin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "404":
+          description: Logbook tidak ditemukan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/logbooks/{id}/photos:
+    post:
+      tags: [Logbooks]
+      summary: Tambah foto ke logbook yang sudah ada
+      description: |
+        Upload foto tambahan ke logbook yang sudah ada (append).
+
+        Gunakan endpoint ini saat operator mengambil foto halaman berikutnya setelah logbook sudah dibuat.
+
+        Request `multipart/form-data` dengan field `photos` (file, bisa multiple).
+
+        **Tidak perlu** mengirim `machine_id`, `log_date`, atau `shift_id` lagi.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID logbook
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photos]
+              properties:
+                photos:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: File foto tambahan (JPEG/PNG/WebP)
+      responses:
+        "200":
+          description: Logbook setelah foto ditambahkan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Logbook' }
+        "400":
+          description: Input tidak valid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "404":
+          description: Logbook tidak ditemukan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "409":
+          description: |
+            Batas foto terlampaui (default: 100 foto per logbook), atau
+            upload expired (coba lagi).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        "503":
+          description: Slot upload penuh, coba lagi sebentar
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v1/logbooks/{id}/photos/{photoID}:
+    get:
+      tags: [Logbooks]
+      summary: Download / tampilkan foto
+      description: |
+        Stream binary foto langsung. Response content-type sesuai format foto (image/jpeg, image/png, image/webp).
+
+        Bisa dipakai langsung sebagai `src` di tag `<img>` dengan menyertakan Authorization header.
+
+        Support `HEAD` request untuk cek metadata tanpa download binary.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID logbook
+          schema: { type: string, format: uuid }
+        - name: photoID
+          in: path
+          required: true
+          description: UUID foto
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Binary foto
+          headers:
+            Content-Type:
+              schema: { type: string, example: "image/jpeg" }
+            Content-Length:
+              schema: { type: integer }
+            ETag:
+              schema: { type: string, description: SHA-256 hash foto }
+            Content-Disposition:
+              schema: { type: string, example: 'inline; filename="abc.jpg"' }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "404":
+          description: Foto atau logbook tidak ditemukan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
