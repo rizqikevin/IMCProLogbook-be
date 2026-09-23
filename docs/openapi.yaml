@@ -1,0 +1,990 @@
+openapi: 3.0.3
+info:
+  title: Machine Logbook Archive API
+  version: 1.0.0
+  description: |
+    Arsip foto logbook dengan login per operator. Operator dan admin dapat membaca,
+    membuat, dan menambah foto pada semua logbook; penghapusan memerlukan admin.
+    Satu logbook unik untuk kombinasi machine_id, log_date, dan shift_id.
+
+    log_date adalah tanggal operasional pabrik yang ditentukan pengguna dalam
+    format YYYY-MM-DD, tanpa konversi zona waktu dari waktu pengambilan foto.
+    Timestamp created_at, updated_at, dan expires_at menggunakan UTC.
+
+    Aplikasi menyimpan foto sementara di perangkat saat operator masih mengambil
+    halaman berikutnya. Setelah operator menekan Done, kirim semua foto dalam satu
+    request multipart dengan field photos berulang. Halaman mengikuti urutan field
+    photos. Batch yang berhasil baru terlihat setelah seluruh foto dan metadata
+    tersimpan; batch gagal tidak menerbitkan sebagian halaman.
+
+    Batas default, yang dapat dikonfigurasi server: 20 foto per upload, 100 foto per
+    logbook, 10 MiB per foto, 40 juta piksel per gambar, dan 100 MiB untuk seluruh
+    body multipart termasuk overhead. JPEG, PNG, dan WebP divalidasi dari isi file.
+    Nama file dan Content-Type yang dikirim klien tidak menentukan format tersimpan.
+    Batas jumlah/ukuran/dimensi foto yang dilanggar menghasilkan 400, batas jumlah
+    total logbook menghasilkan 409, dan batas seluruh request menghasilkan 413.
+
+    API tidak mendukung Idempotency-Key atau deduplikasi foto. Setelah koneksi
+    terputus atau hasil upload tidak pasti, baca detail logbook dan bandingkan
+    photos, sha256, size, serta page_number sebelum mengirim ulang. Mengulang append
+    yang sudah berhasil akan menambah halaman duplikat. Untuk create yang hasilnya
+    tidak pasti, cari logbook berdasarkan mesin, tanggal, dan shift terlebih dahulu.
+
+    Semua respons memiliki X-Request-ID dan Cache-Control: no-store. Request dengan
+    Origin yang tidak diizinkan ditolak dengan 403. GET juga menerima HEAD melalui
+    router, dengan status/header yang sama tanpa body. Foto selalu diakses dengan
+    Bearer token melalui API; URL foto bukan URL publik storage. Tidak ada dukungan
+    Range atau respons 304 untuk If-None-Match pada implementasi ini.
+servers:
+  - url: http://localhost:8080
+    description: Development lokal; gunakan HTTPS melalui reverse proxy di production.
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Auth
+  - name: Reference
+  - name: Logbooks
+  - name: Photos
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: getLiveness
+      summary: Memeriksa proses HTTP hidup
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Healthy'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: getReadiness
+      summary: Memeriksa koneksi database dan storage
+      description: Pemeriksaan dependency dibatasi hingga tiga detik.
+      security: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Healthy'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Database atau storage belum siap; kode not_ready.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Login operator atau admin
+      description: |
+        Username dinormalisasi menjadi huruf kecil dan spasi di tepi dihapus.
+        Maksimum body JSON 4096 byte. Hanya satu objek JSON diterima; field yang
+        tidak dikenal ditolak. Percobaan login dibatasi 10 per menit per IP koneksi
+        langsung pada setiap proses server. Masa sesi default 12 jam, dapat diatur
+        server. Tidak ada refresh token; login kembali setelah sesi kedaluwarsa.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesi dibuat; simpan access_token dengan aman di aplikasi.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '415':
+          description: Content-Type harus application/json; kode unsupported_media_type.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Batas percobaan login tercapai; kode rate_limited.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Retry-After:
+              description: Jeda sebelum mencoba lagi dalam detik.
+              schema:
+                type: integer
+                example: 60
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Mencabut sesi yang sedang digunakan
+      description: Token yang telah dicabut menghasilkan 401 pada request berikutnya.
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      operationId: getCurrentUser
+      summary: Membaca pengguna pemilik sesi aktif
+      responses:
+        '200':
+          description: Pengguna yang terautentikasi.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/machines:
+    get:
+      tags: [Reference]
+      operationId: listMachines
+      summary: Daftar mesin aktif
+      description: |
+        Data awal adalah MAILENDER 222, MS3, COATING 1, COATING 2, dan COATING 3.
+        Gunakan ID dari respons ini saat membuat logbook. Urutan berdasarkan ID naik.
+      responses:
+        '200':
+          description: Mesin aktif, atau items kosong.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Machine'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/shifts:
+    get:
+      tags: [Reference]
+      operationId: listShifts
+      summary: Daftar shift aktif
+      description: Data awal Shift 1, Shift 2, Shift 3. Urutan berdasarkan ID naik.
+      responses:
+        '200':
+          description: Shift aktif, atau items kosong.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Shift'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/logbooks:
+    get:
+      tags: [Logbooks]
+      operationId: listLogbooks
+      summary: Mencari arsip dengan paginasi cursor
+      description: |
+        Hasil diurutkan log_date menurun, lalu UUID menurun sebagai pembeda.
+        Respons daftar tidak menyertakan array photos; gunakan endpoint detail.
+        date_from dan date_to bersifat inklusif; date_from tidak boleh melewati
+        date_to. Gunakan next_cursor apa adanya untuk halaman berikutnya dan
+        pertahankan filter yang sama. next_cursor dihilangkan pada halaman terakhir.
+        Parameter kosong, berulang, atau tidak dikenal ditolak dengan 400.
+      parameters:
+        - name: machine_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: shift_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: date_from
+          in: query
+          schema:
+            $ref: '#/components/schemas/LogDate'
+        - name: date_to
+          in: query
+          schema:
+            $ref: '#/components/schemas/LogDate'
+        - name: cursor
+          in: query
+          description: Cursor opaque dari next_cursor pada respons sebelumnya.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 512
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Halaman hasil, termasuk items kosong jika tidak ada kecocokan.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogbookPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+    post:
+      tags: [Logbooks]
+      operationId: createLogbook
+      summary: Membuat logbook beserta seluruh foto dari satu batch
+      description: |
+        Kirim machine_id, shift_id, dan log_date tepat sekali, serta satu atau lebih
+        field file bernama photos. Field lain ditolak. Mesin dan shift harus aktif.
+        Semua foto wajib valid. Konflik kombinasi mesin/tanggal/shift menghasilkan
+        409; gunakan append untuk menambah halaman pada logbook yang sudah ada.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateLogbookRequest'
+            encoding:
+              photos:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '201':
+          description: Logbook dan semua halaman dalam batch berhasil diterbitkan.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Location:
+              description: Path endpoint detail logbook yang dibuat.
+              schema:
+                type: string
+                example: /api/v1/logbooks/550e8400-e29b-41d4-a716-446655440000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogbookDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/UploadBusy'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/logbooks/{id}:
+    parameters:
+      - $ref: '#/components/parameters/LogbookID'
+    get:
+      tags: [Logbooks]
+      operationId: getLogbook
+      summary: Membaca detail logbook dan seluruh halaman
+      description: Array photos diurutkan berdasarkan page_number naik.
+      responses:
+        '200':
+          $ref: '#/components/responses/LogbookDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+    delete:
+      tags: [Logbooks]
+      operationId: deleteLogbook
+      summary: Menghapus satu logbook sebagai admin
+      description: |
+        Memerlukan role admin. Setelah sukses, metadata tidak dapat diakses lagi.
+        Penghapusan file storage dijadwalkan secara durable dan diproses background.
+        Logbook yang tidak ada, termasuk yang sudah dihapus, menghasilkan 404.
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/logbooks/{id}/photos:
+    parameters:
+      - $ref: '#/components/parameters/LogbookID'
+    post:
+      tags: [Photos]
+      operationId: appendLogbookPhotos
+      summary: Menambahkan batch foto ke halaman terakhir
+      description: |
+        Hanya field file photos yang diterima, tanpa field teks. Penomoran halaman
+        dilanjutkan dari halaman terakhir dan mengikuti urutan file dalam batch.
+        Operator maupun admin boleh menambahkan foto. Batch disimpan seluruhnya
+        atau tidak diterbitkan sama sekali. Append tidak idempotent: setelah hasil
+        request tidak pasti, baca detail dan periksa SHA-256 foto sebelum retry.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppendPhotosRequest'
+            encoding:
+              photos:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          $ref: '#/components/responses/LogbookDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/TooLarge'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/UploadBusy'
+        '504':
+          $ref: '#/components/responses/Timeout'
+  /api/v1/logbooks/{id}/photos/{photoID}:
+    parameters:
+      - $ref: '#/components/parameters/LogbookID'
+      - $ref: '#/components/parameters/PhotoID'
+    get:
+      tags: [Photos]
+      operationId: getPhoto
+      summary: Membaca byte foto dengan autentikasi
+      description: |
+        Mengembalikan file gambar, tanpa envelope JSON. Foto harus merupakan bagian
+        dari logbook pada path. Jika stream terputus setelah header terkirim, status
+        tidak dapat diganti dengan JSON error; periksa panjang/kelengkapan download.
+      responses:
+        '200':
+          description: Byte foto asli yang tersimpan.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Content-Length:
+              $ref: '#/components/headers/PhotoLength'
+            Content-Disposition:
+              $ref: '#/components/headers/PhotoDisposition'
+            ETag:
+              $ref: '#/components/headers/PhotoETag'
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '408':
+          $ref: '#/components/responses/Canceled'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '504':
+          $ref: '#/components/responses/Timeout'
+    head:
+      tags: [Photos]
+      operationId: headPhoto
+      summary: Membaca header foto tanpa body
+      description: |
+        Menggunakan handler dan pemeriksaan akses yang sama dengan GET.
+        Seluruh respons HEAD, termasuk error, tidak mengirim body.
+      responses:
+        '200':
+          description: Header foto; Content-Type mengikuti format gambar tersimpan.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+            Content-Length:
+              $ref: '#/components/headers/PhotoLength'
+            Content-Disposition:
+              $ref: '#/components/headers/PhotoDisposition'
+            ETag:
+              $ref: '#/components/headers/PhotoETag'
+        '400':
+          description: UUID path tidak valid; tanpa body.
+        '401':
+          description: Token tidak valid atau kedaluwarsa; tanpa body.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: Bearer
+        '403':
+          description: Origin tidak diizinkan; tanpa body.
+        '404':
+          description: Logbook atau foto tidak ditemukan; tanpa body.
+        '408':
+          description: Request dibatalkan; tanpa body.
+        '500':
+          description: Kesalahan internal; tanpa body.
+        '504':
+          description: Waktu request habis; tanpa body.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Opaque session token
+      description: |
+        Gunakan access_token dari login dalam Authorization: Bearer <access_token>.
+        Token adalah 43 karakter base64url tanpa padding, bukan JWT. Login dan
+        health tidak memerlukan token. Sesi berakhir pada expires_at atau saat
+        logout; reset password dan penonaktifan pengguna juga mencabut sesi.
+  parameters:
+    LogbookID:
+      name: id
+      in: path
+      required: true
+      description: UUID logbook kanonis huruf kecil, bukan UUID nol.
+      schema:
+        $ref: '#/components/schemas/ID'
+    PhotoID:
+      name: photoID
+      in: path
+      required: true
+      description: UUID foto kanonis huruf kecil, bukan UUID nol.
+      schema:
+        $ref: '#/components/schemas/ID'
+  headers:
+    RequestID:
+      description: ID yang dibuat server untuk pelacakan request dan error.
+      schema:
+        type: string
+        format: uuid
+    PhotoLength:
+      description: Ukuran foto asli dalam byte, termasuk untuk respons HEAD.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    PhotoDisposition:
+      description: Disposisi inline dengan nama file UUID yang dibuat server.
+      schema:
+        type: string
+        example: inline; filename=550e8400-e29b-41d4-a716-446655440001.jpg
+    PhotoETag:
+      description: SHA-256 isi file dalam tanda kutip; bukan dukungan conditional GET.
+      schema:
+        type: string
+        example: '"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"'
+  schemas:
+    ID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      not:
+        enum: ['00000000-0000-0000-0000-000000000000']
+      example: 550e8400-e29b-41d4-a716-446655440000
+    LogDate:
+      type: string
+      format: date
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      description: Tanggal operasional valid YYYY-MM-DD, tahun 0001 hingga 9999.
+      example: '2026-09-22'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: |
+            Setelah normalisasi, 3 hingga 64 karakter ASCII berupa huruf, angka,
+            titik, underscore, atau tanda hubung. Username tidak valid menghasilkan 401.
+          example: operator.mailender
+        password:
+          type: string
+          format: password
+          writeOnly: true
+          description: Password akun yang sudah dibuat administrator melalui CLI.
+    LoginResult:
+      type: object
+      required: [access_token, token_type, expires_at, user]
+      properties:
+        access_token:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: Token opaque untuk sesi ini; jangan ditulis ke log.
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_at:
+          type: string
+          format: date-time
+          description: Waktu akhir sesi dalam UTC.
+        user:
+          $ref: '#/components/schemas/User'
+    User:
+      type: object
+      required: [id, username, name, role, active]
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        username:
+          type: string
+          minLength: 3
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          type: string
+          enum: [operator, admin]
+        active:
+          type: boolean
+    Machine:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 1
+        name:
+          type: string
+          example: MAILENDER 222
+    Shift:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 1
+        name:
+          type: string
+          example: Shift 1
+    Photo:
+      type: object
+      required: [id, page_number, content_type, size, sha256, uploaded_by, created_at, url]
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        page_number:
+          type: integer
+          minimum: 1
+          description: Nomor halaman dimulai dari satu di dalam logbook.
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Ukuran file dalam byte.
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 dari byte file asli, untuk pemeriksaan upload oleh klien.
+        uploaded_by:
+          $ref: '#/components/schemas/ID'
+        created_at:
+          type: string
+          format: date-time
+          description: Waktu upload dalam UTC, bukan waktu pengambilan foto.
+        url:
+          type: string
+          description: Path relatif API yang tetap memerlukan Bearer token.
+          example: /api/v1/logbooks/550e8400-e29b-41d4-a716-446655440000/photos/550e8400-e29b-41d4-a716-446655440001
+    Logbook:
+      type: object
+      required: [id, machine, log_date, shift, created_by, created_at, updated_at, photo_count]
+      properties:
+        id:
+          $ref: '#/components/schemas/ID'
+        machine:
+          $ref: '#/components/schemas/Machine'
+        log_date:
+          $ref: '#/components/schemas/LogDate'
+        shift:
+          $ref: '#/components/schemas/Shift'
+        created_by:
+          $ref: '#/components/schemas/ID'
+        created_at:
+          type: string
+          format: date-time
+          description: Waktu pembuatan arsip dalam UTC.
+        updated_at:
+          type: string
+          format: date-time
+          description: Waktu perubahan terakhir dalam UTC.
+        photo_count:
+          type: integer
+          minimum: 1
+    LogbookDetail:
+      allOf:
+        - $ref: '#/components/schemas/Logbook'
+        - type: object
+          required: [photos]
+          properties:
+            photos:
+              type: array
+              minItems: 1
+              description: Seluruh halaman logbook, diurutkan berdasarkan page_number.
+              items:
+                $ref: '#/components/schemas/Photo'
+    LogbookPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Logbook'
+        next_cursor:
+          type: string
+          description: Dihilangkan ketika tidak ada halaman selanjutnya.
+    PhotoUploadArray:
+      type: array
+      minItems: 1
+      description: |
+        Kirim file sebagai field photos berulang. Maksimum default 20 foto per batch;
+        dapat dikonfigurasi server. Setiap foto default maksimal 10 MiB dan 40 juta
+        piksel, dengan format JPEG, PNG, atau WebP yang valid dan dapat didekode penuh.
+      items:
+        type: string
+        format: binary
+    CreateLogbookRequest:
+      type: object
+      additionalProperties: false
+      required: [machine_id, shift_id, log_date, photos]
+      properties:
+        machine_id:
+          type: integer
+          format: int64
+          minimum: 1
+        shift_id:
+          type: integer
+          format: int64
+          minimum: 1
+        log_date:
+          $ref: '#/components/schemas/LogDate'
+        photos:
+          $ref: '#/components/schemas/PhotoUploadArray'
+    AppendPhotosRequest:
+      type: object
+      additionalProperties: false
+      required: [photos]
+      properties:
+        photos:
+          $ref: '#/components/schemas/PhotoUploadArray'
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              description: Kode error stabil untuk penanganan di klien.
+              enum:
+                - validation_error
+                - invalid_json
+                - unauthorized
+                - forbidden
+                - origin_not_allowed
+                - not_found
+                - conflict
+                - photo_limit
+                - upload_expired
+                - payload_too_large
+                - unsupported_media_type
+                - rate_limited
+                - upload_busy
+                - not_ready
+                - request_canceled
+                - timeout
+                - internal_error
+            message:
+              type: string
+              description: Penjelasan error; jangan menggunakan teks ini sebagai kode program.
+            request_id:
+              type: string
+              format: uuid
+      example:
+        error:
+          code: validation_error
+          message: log_date must be a valid date in YYYY-MM-DD format
+          request_id: 550e8400-e29b-41d4-a716-446655440002
+  responses:
+    Healthy:
+      description: Pemeriksaan berhasil.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status:
+                type: string
+                enum: [ok]
+    NoContent:
+      description: Berhasil, tanpa body respons.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+    LogbookDetail:
+      description: Detail logbook beserta semua halaman saat transaksi selesai.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LogbookDetail'
+    BadRequest:
+      description: |
+        Input tidak valid; kode validation_error atau invalid_json. Termasuk UUID,
+        tanggal, field, cursor, format/ukuran/dimensi foto, atau referensi tidak aktif.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Kredensial salah, pengguna nonaktif, atau sesi tidak valid/kedaluwarsa; kode unauthorized.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: Origin tidak diizinkan (origin_not_allowed), atau DELETE tanpa role admin (forbidden).
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Logbook atau foto tidak ditemukan; kode not_found.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: |
+        Kombinasi mesin/tanggal/shift sudah ada (conflict), total halaman melebihi
+        batas logbook (photo_limit), atau reservasi upload kedaluwarsa (upload_expired).
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    TooLarge:
+      description: Seluruh body melewati batas endpoint; kode payload_too_large.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UploadBusy:
+      description: Kapasitas upload proses ini sedang penuh; kode upload_busy.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+        Retry-After:
+          description: Jeda sebelum mencoba lagi dalam detik.
+          schema:
+            type: integer
+            example: 2
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Canceled:
+      description: Konteks request dibatalkan sebelum respons selesai; kode request_canceled.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Timeout:
+      description: Deadline request terlewati sebelum respons selesai; kode timeout.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Kesalahan internal tanpa rincian sensitif; kode internal_error.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

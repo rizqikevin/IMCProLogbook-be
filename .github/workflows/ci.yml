@@ -1,0 +1,45 @@
+name: backend
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: logbook_test
+          POSTGRES_PASSWORD: logbook_test_only
+          POSTGRES_DB: logbook_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U logbook_test -d logbook_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://logbook_test:logbook_test_only@localhost:5432/logbook_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: test -z "$(gofmt -l cmd internal migrations)"
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go build ./cmd/logbook
+      - run: docker build -t machine-logbook:ci .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test && npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:e2e
+        working-directory: frontend
+      - run: docker build -t machine-logbook-web:ci ./frontend

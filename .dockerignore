@@ -8,3 +8,7 @@ bin
 data
 coverage.out
 *.test
+frontend/node_modules
+frontend/dist
+frontend/test-results
+frontend/playwright-report

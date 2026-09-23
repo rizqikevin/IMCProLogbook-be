@@ -93,6 +93,18 @@ services:
     cap_drop: [ALL]
     stop_grace_period: 35s
 
+  web:
+    profiles: [web]
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:8080"
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   db_data:
   minio_data:
