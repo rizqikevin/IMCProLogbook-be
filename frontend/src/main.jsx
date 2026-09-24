@@ -9,6 +9,14 @@ import Book from "./pages/Book";
 import Capture from "./pages/Capture";
 import "./styles.css";
 
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .catch((error) => console.warn("PWA registration failed:", error));
+  });
+}
+
 const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   {

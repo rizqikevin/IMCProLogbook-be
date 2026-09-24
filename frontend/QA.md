@@ -35,3 +35,16 @@ tanpa memakai kredensial production. Lima unit test frontend juga lulus kembali.
 Kamera menggunakan perangkat simulasi Chromium. Kamera fisik, pergantian lensa,
 izin Safari/iOS, serta deployment HTTPS perlu diperiksa pada perangkat operator.
 Pengujian ini tidak menyatakan seluruh kombinasi browser dan perangkat didukung.
+
+## PWA · 24 September 2026
+
+Build production dan container tanpa Nginx berhasil. `npm run test:pwa` lulus
+terhadap container lokal: Chromium melaporkan nol installability errors, ikon
+sesuai dimensi manifest, service worker aktif, navigasi offline menampilkan fallback,
+dan koneksi yang pulih kembali menuju login. Cache Storage hanya berisi
+`offline.html` dan `offline.css` setelah request API. Lima unit test frontend serta
+pengujian server Go juga lulus.
+
+Ikon memakai bentuk buku sederhana dari SVG lokal dengan warna aplikasi, untuk
+identitas launcher. Tidak ada perubahan alur pengambilan foto. Instalasi Android,
+iOS, dan alur Cloudflare Access pada domain production belum diuji di perangkat fisik.

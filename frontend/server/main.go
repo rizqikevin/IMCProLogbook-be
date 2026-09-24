@@ -55,6 +55,9 @@ func handler(root string, upstream *url.URL) http.Handler {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-cache")
+		if clean == "/manifest.webmanifest" {
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
 		info, err := os.Stat(filepath.Join(root, clean))
 		if err == nil && !info.IsDir() {
 			files.ServeHTTP(w, r)

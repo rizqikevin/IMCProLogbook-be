@@ -123,3 +123,40 @@ network error, sesi berakhir, keyboard, kontras axe, dan overflow desktop/ponsel
 
 Desain disepakati dalam `DESIGN.md`. Kamera fisik dan perilaku izin Safari/iOS tetap
 perlu diuji di perangkat operator sebelum deployment.
+
+## Install di ponsel (PWA)
+
+Buka domain HTTPS aplikasi. Di Android Chrome, pilih menu **Install app / Tambahkan
+ke layar utama**. Di iPhone Safari, pilih **Bagikan → Tambahkan ke Layar Utama**,
+aktifkan **Buka sebagai App** bila tersedia, lalu tambah.
+
+Manifest, ikon Android/maskable, dan Apple touch icon disertakan dalam build.
+Service worker hanya aktif pada build production, bukan Vite development.
+Gunakan Docker untuk pengujian yang sama dengan deployment.
+
+Aplikasi tetap membutuhkan internet untuk login, membaca arsip, dan mengunggah.
+Cache PWA hanya menyimpan halaman offline beserta CSS-nya; API, foto, dan token
+login tidak dimasukkan ke Cache Storage. Draft foto tetap berada di memori dan
+hilang jika aplikasi ditutup. Ini bukan fitur sinkronisasi offline.
+
+Pembaruan tidak memaksa reload atau aktivasi worker saat draft sedang terbuka.
+Worker baru menunggu instance aplikasi lama ditutup. Setelah deploy, tutup seluruh
+jendela aplikasi lalu buka lagi bila ingin memuat pembaruan. Sesi operator tetap
+mengikuti aturan login yang ada, sehingga aplikasi dapat meminta login lagi.
+
+Jika menggunakan Cloudflare Access, selesaikan login Access sebelum memasang.
+Pastikan manifest, ikon, dan `/sw.js` bisa dimuat setelah autentikasi. Jangan
+cache `/sw.js` atau manifest secara permanen melalui aturan Cloudflare.
+
+Pengujian PWA pada container lokal yang berjalan:
+
+```sh
+npm run test:pwa
+```
+
+Tes memeriksa manifest, ukuran ikon, installability Chromium, worker aktif,
+halaman offline, pemulihan koneksi, dan bahwa API tidak disimpan dalam cache.
+Instalasi pada perangkat Android/iPhone fisik tetap perlu diuji lewat domain Anda.
+
+Referensi: [MDN installable PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable)
+dan [panduan Apple](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
