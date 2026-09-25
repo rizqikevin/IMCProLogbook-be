@@ -231,7 +231,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   ).toBeVisible();
   await page.getByRole("button", { name: "Keluar dari akun" }).click();
   await expect(
-    page.getByRole("heading", { name: "Selamat datang kembali." }),
+    page.getByRole("heading", { name: "Masuk ke logbook." }),
   ).toBeVisible();
   await login(page, "admin");
   await page.goto(bookPath);

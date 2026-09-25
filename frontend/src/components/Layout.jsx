@@ -28,10 +28,14 @@ export default function Layout() {
       <header className="app-header">
         <div className="header-inner">
           <Link className="wordmark" to="/">
-            <strong>
-              Machine Logbook<span className="brand-period">.</span>
-            </strong>
-            <span>Arsip catatan produksi</span>
+            <img
+              className="brand-logo"
+              src="/brand/imcpro.png"
+              alt="IMCPro"
+              width="962"
+              height="213"
+            />
+            <span>Machine Logbook Archive</span>
           </Link>
           <nav aria-label="Navigasi utama" className="desktop-nav">
             <NavLink to="/" end>

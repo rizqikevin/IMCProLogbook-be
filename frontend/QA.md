@@ -48,3 +48,12 @@ pengujian server Go juga lulus.
 Ikon memakai bentuk buku sederhana dari SVG lokal dengan warna aplikasi, untuk
 identitas launcher. Tidak ada perubahan alur pengambilan foto. Instalasi Android,
 iOS, dan alur Cloudflare Access pada domain production belum diuji di perangkat fisik.
+
+## IMCPro UI refresh
+
+Logo asli pengguna dipasang tanpa modifikasi pada login dan header. Navy dari logo
+menjadi warna tindakan utama; filter, identitas logbook, dan pilihan foto dibedakan
+melalui permukaan dan jarak. Screenshot login desktop/ponsel, daftar desktop, dan
+capture ponsel diperiksa. Build production, 5 unit test, dan 4 E2E desktop/ponsel
+lulus; E2E mencakup axe dan overflow hingga lebar 320 piksel. Gate antislop mengikuti
+arah dalam DESIGN.md, tanpa data tambahan atau perubahan alur upload.

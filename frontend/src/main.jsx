@@ -8,6 +8,7 @@ import Archives from "./pages/Archives";
 import Book from "./pages/Book";
 import Capture from "./pages/Capture";
 import "./styles.css";
+import "./brand.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

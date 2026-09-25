@@ -44,19 +44,21 @@ export default function Login() {
     <main className="login-page">
       <section className="login-story">
         <div className="wordmark">
-          <strong>
-            Machine Logbook<span className="brand-period">.</span>
-          </strong>
-          <span>Arsip catatan produksi</span>
+          <img
+            className="brand-logo"
+            src="/brand/imcpro.png"
+            alt="IMCPro"
+            width="962"
+            height="213"
+          />
+          <span>Machine Logbook Archive</span>
         </div>
         <div className="login-title">
-          <p className="section-label">
-            Dari lantai produksi, untuk setiap shift.
-          </p>
+          <p className="section-label">Catatan produksi · Arsip digital</p>
           <h1>
-            Setiap halaman.
+            Logbook tersimpan.
             <br />
-            Satu tempat.
+            Shift berlanjut.
           </h1>
           <p>
             Simpan foto logbook mesin dan temukan kembali catatan yang Anda
@@ -79,7 +81,7 @@ export default function Login() {
       <section className="login-form-panel">
         <div className="login-form-wrap">
           <p className="section-label">Akses operator</p>
-          <h2>Selamat datang kembali.</h2>
+          <h2>Masuk ke logbook.</h2>
           <p className="muted">Masuk untuk melihat dan mengarsipkan logbook.</p>
           <form onSubmit={submit} className="login-form">
             <ErrorNotice error={error} />
@@ -135,7 +137,7 @@ export default function Login() {
             Hubungi administrator untuk bantuan akses.
           </p>
         </div>
-        <p className="login-bottom">Catatan tersusun. Pekerjaan berlanjut.</p>
+        <p className="login-bottom">IMCPro · Machine Logbook Archive</p>
       </section>
     </main>
   );

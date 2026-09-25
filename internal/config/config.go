@@ -85,9 +85,6 @@ func Load() (Config, error) {
 	if c.StorageDriver == "s3" && c.S3Bucket == "" {
 		err = errors.Join(err, errors.New("S3_BUCKET is required for s3 storage"))
 	}
-	if c.Environment == "production" && c.StorageDriver != "s3" {
-		err = errors.Join(err, errors.New("production requires STORAGE_DRIVER=s3"))
-	}
 	if c.MaxPhotoBytes > c.MaxRequestBytes {
 		err = errors.Join(err, errors.New("MAX_PHOTO_BYTES cannot exceed MAX_REQUEST_BYTES"))
 	}

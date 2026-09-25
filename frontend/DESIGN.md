@@ -17,4 +17,13 @@ register with a restrained industrial palette. ENERGY 1 / RHYTHM 2 / MOTION 1.
 - Native dialogs provide focus containment and Escape handling. Controls have visible
   focus, at least 44px touch targets, and meaningful text labels.
 - Motion is limited to brief hover/focus transitions; reduced motion is respected.
-- Product name is the wordmark. No invented logo, people, or sample records in the app.
+- The user-supplied IMCPro logo is displayed unchanged on login and the app header.
+
+## IMCPro refresh
+
+The supplied logo now anchors the light industrial direction. Navy replaces green
+for primary actions and selected machines; red and yellow remain in the logo only.
+Login uses a pale navy panel and more compact mobile typography. White filter
+surfaces distinguish search controls from archive results. Numbered photo sections
+and the raised save bar separate preparation from submission. Existing accessible
+controls and the ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain in place.

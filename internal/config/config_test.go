@@ -31,7 +31,6 @@ func TestRejectsUnsafeConfiguration(t *testing.T) {
 		message string
 	}{
 		{"database", map[string]string{"DATABASE_URL": ""}, "DATABASE_URL"},
-		{"production local", map[string]string{"APP_ENV": "production"}, "requires STORAGE_DRIVER=s3"},
 		{"s3 bucket", map[string]string{"STORAGE_DRIVER": "s3"}, "S3_BUCKET"},
 		{"s3 TLS", map[string]string{"APP_ENV": "production", "STORAGE_DRIVER": "s3", "S3_BUCKET": "archive", "S3_ENDPOINT": "http://s3.example.test"}, "requires HTTPS"},
 		{"endpoint scheme", map[string]string{"S3_ENDPOINT": "ftp://storage.test"}, "endpoint URL"},
@@ -54,5 +53,19 @@ func TestRejectsUnsafeConfiguration(t *testing.T) {
 				t.Fatalf("got %v, want %q", err, tc.message)
 			}
 		})
+	}
+}
+
+func TestProductionLocalStorage(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("STORAGE_DRIVER", "local")
+	t.Setenv("LOCAL_STORAGE_PATH", "/app/data/uploads")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.StorageDriver != "local" || c.LocalStoragePath != "/app/data/uploads" {
+		t.Fatal("local storage configuration not preserved")
 	}
 }

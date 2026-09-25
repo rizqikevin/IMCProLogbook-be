@@ -1,0 +1,231 @@
+/* IMCPro's supplied navy logo anchors the light production workspace. */
+@layer base {
+  :root {
+    color: #202537;
+    background: #f4f5f8;
+    --paper: #f4f5f8;
+    --ink: #202537;
+    --muted: #596176;
+    --green: #292475;
+    --green-dark: #201b5a;
+    --green-pale: #eeedf8;
+    --line: #dce0e9;
+    --control: #80889b;
+  }
+}
+@layer components {
+  .brand-logo {
+    width: 178px;
+    height: auto;
+    object-fit: contain;
+  }
+  .wordmark {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .wordmark > span {
+    font-size: 0.69rem;
+    letter-spacing: 0.015em;
+  }
+  .header-inner {
+    min-height: 90px;
+  }
+  .app-header {
+    border-top: 4px solid var(--green);
+  }
+  .desktop-nav a.active {
+    border-bottom-width: 3px;
+  }
+  .page-heading {
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .page-heading h1 {
+    font-size: clamp(1.9rem, 3vw, 2.65rem);
+    letter-spacing: -0.04em;
+  }
+  .machine-panel {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .machine-panel h2 {
+    padding: 0 0.85rem;
+  }
+  .machine-option.selected {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+  }
+  .machine-option.selected .machine-number {
+    color: white;
+  }
+  .machine-option:hover:not(.selected) {
+    background: var(--green-pale);
+  }
+  .filter-bar {
+    background: white;
+    padding: 1.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .archive-row:hover {
+    background: #f1f1fa;
+  }
+  .archive-date strong {
+    color: var(--green);
+  }
+  .entry-metadata,
+  .entry-photos {
+    border-radius: 12px;
+  }
+  .photo-input-area {
+    background: #f7f7fc;
+  }
+  .step-number {
+    display: grid;
+    place-items: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--green-pale);
+  }
+  .save-bar {
+    box-shadow: 0 5px 20px #20253712;
+    border-color: var(--control);
+  }
+  .login-page {
+    grid-template-columns: 1.05fr 1fr;
+    background: white;
+  }
+  .login-story {
+    background: #eeedf5;
+    border-color: var(--line);
+    min-height: 100dvh;
+  }
+  .login-story .brand-logo {
+    width: 260px;
+  }
+  .login-story .wordmark > span {
+    font-size: 0.8rem;
+  }
+  .login-title h1 {
+    font-size: clamp(2.7rem, 4.7vw, 5rem);
+    line-height: 1.1;
+    color: var(--green-dark);
+    font-weight: 650;
+    letter-spacing: -0.055em;
+  }
+  .login-title > p:last-child {
+    color: var(--muted);
+    max-width: 370px;
+  }
+  .login-register {
+    margin-bottom: 3rem;
+  }
+  .login-register > span {
+    border-color: #c9c9de;
+    color: var(--muted);
+  }
+  .login-form-wrap {
+    max-width: 390px;
+  }
+  .login-form-wrap h2 {
+    font-size: 2.25rem;
+  }
+  .login-form input {
+    min-height: 52px;
+  }
+  .login-form .password-input button {
+    top: 4px;
+  }
+  .login-form > .button {
+    min-height: 52px;
+  }
+  .login-help {
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+  }
+}
+@layer responsive {
+  @media (max-width: 800px) {
+    .brand-logo {
+      width: 160px;
+    }
+    .login-page {
+      grid-template-columns: 0.9fr 1fr;
+    }
+    .login-story {
+      padding: 2rem;
+    }
+    .login-story .brand-logo {
+      width: 200px;
+    }
+    .login-title h1 {
+      font-size: 2.6rem;
+    }
+  }
+  @media (max-width: 580px) {
+    .brand-logo {
+      width: 130px;
+    }
+    .wordmark > span {
+      font-size: 0.6rem;
+    }
+    .header-inner {
+      min-height: 84px;
+    }
+    .page {
+      padding-top: 1.5rem;
+    }
+    .page-heading {
+      padding-bottom: 1.25rem;
+      gap: 1rem;
+    }
+    .filter-bar {
+      padding: 1rem;
+    }
+    .entry-metadata,
+    .entry-photos {
+      padding: 1.2rem;
+    }
+    .login-page {
+      display: block;
+    }
+    .login-story {
+      min-height: auto;
+      padding: 2rem 1.5rem 1.5rem;
+      background: #eeedf5;
+    }
+    .login-story .brand-logo {
+      width: 185px;
+    }
+    .login-story .wordmark > span {
+      font-size: 0.7rem;
+    }
+    .login-title {
+      padding: 1.75rem 0 0;
+    }
+    .login-title h1 {
+      font-size: 2.25rem;
+    }
+    .login-title > p:last-child {
+      margin-top: 0.85rem;
+      font-size: 0.84rem;
+    }
+    .login-form-panel {
+      padding: 1.75rem 1.5rem;
+    }
+    .login-form-wrap h2 {
+      font-size: 1.75rem;
+    }
+    .login-form {
+      margin-top: 1.5rem;
+      gap: 1.15rem;
+    }
+    .login-bottom {
+      margin-top: 2rem;
+    }
+  }
+}

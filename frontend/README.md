@@ -4,7 +4,7 @@ Frontend React (JavaScript) + Vite, tersambung langsung ke REST API Go.
 
 ## Jalankan lokal
 
-Jalankan backend di port 8080 terlebih dahulu. Dari direktori `frontend`:
+Jalankan `docker compose up -d --build` dari root terlebih dahulu. Dari direktori `frontend`:
 
 ```sh
 npm ci
@@ -14,7 +14,7 @@ npm run dev
 Buka `http://localhost:5173`, lalu masuk menggunakan akun operator atau admin backend.
 Tidak ada akun/password default yang ditambahkan ke database aplikasi.
 
-Vite meneruskan `/api` ke `http://127.0.0.1:8080`. Jika alamat backend berbeda,
+Vite meneruskan `/api` ke `http://127.0.0.1:3000`. Jika alamat backend berbeda,
 salin `.env.example` menjadi `.env.local` lalu ubah `API_PROXY_TARGET`.
 Untuk akses lintas domain, set `VITE_API_BASE_URL` ke origin backend dan tambahkan
 origin frontend pada `CORS_ALLOWED_ORIGINS` backend. Nilai `VITE_*` menjadi bagian
@@ -76,7 +76,7 @@ alamat API yang sesuai saat build, atau jalankan Docker berikut untuk integrasi 
 Dari direktori backend:
 
 ```sh
-docker compose --profile web up --build -d
+docker compose up --build -d
 ```
 
 Frontend ada di `http://localhost:3000`. Server Go meneruskan `/api` ke service `app` dan
@@ -84,7 +84,7 @@ menangani deep link React Router. Tambahkan TLS pada ingress untuk penggunaan pr
 dan kamera ponsel. `WEB_PORT` dapat mengganti port lokal frontend.
 
 Untuk Linux home server dengan Cloudflare Tunnel tanpa Nginx, ikuti
-[panduan home server](../docs/home-server.md) dan gunakan `compose.home.yml`.
+[panduan home server](../docs/home-server.md). Mac dan Linux memakai `docker-compose.yml` yang sama.
 
 ## Struktur
 

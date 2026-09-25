@@ -1,111 +1,107 @@
-# Development stack. Production uses a managed database, private S3, and TLS ingress.
+# Shared stack for macOS development and Linux home servers.
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: logbook
-      POSTGRES_PASSWORD: logbook
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: logbook
     volumes:
       - db_data:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logbook -d logbook"]
+      test: [CMD-SHELL, pg_isready -U logbook -d logbook]
       interval: 5s
       timeout: 5s
       retries: 10
-
-  minio:
-    profiles: [s3]
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    volumes:
-      - minio_data:/data
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # One-shot: creates the bucket on first run.
-  minio-init:
-    profiles: [s3]
-    image: minio/mc:latest
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 minioadmin minioadmin &&
-        mc mb --ignore-existing local/logbook-dev
-      "
+    networks: [private]
 
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     image: machine-logbook:local
-    command: ["migrate", "up"]
+    command: [migrate, up]
+    environment:
+      DATABASE_URL: postgres://logbook:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/logbook?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://logbook:logbook@db:5432/logbook?sslmode=disable
     read_only: true
-    tmpfs:
-      - /tmp:mode=1777,size=64m
+    tmpfs: ["/tmp:mode=1777,size=64m"]
+    networks: [private]
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     image: machine-logbook:local
     restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      HTTP_ADDR: :8080
+      DATABASE_URL: postgres://logbook:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/logbook?sslmode=disable
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      LOCAL_STORAGE_PATH: /app/data/uploads
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SESSION_TTL: ${SESSION_TTL:-12h}
+      MAX_REQUEST_BYTES: ${MAX_REQUEST_BYTES:-100000000}
+      MAX_PHOTO_BYTES: ${MAX_PHOTO_BYTES:-10485760}
+      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-40000000}
+      MAX_PHOTOS_PER_UPLOAD: ${MAX_PHOTOS_PER_UPLOAD:-20}
+      MAX_PHOTOS_PER_LOGBOOK: ${MAX_PHOTOS_PER_LOGBOOK:-100}
+      MAX_CONCURRENT_UPLOADS: ${MAX_CONCURRENT_UPLOADS:-4}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-2m}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-30s}
     depends_on:
       migrate:
         condition: service_completed_successfully
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      APP_ENV: development
-      HTTP_ADDR: :8080
-      DATABASE_URL: postgres://logbook:logbook@db:5432/logbook?sslmode=disable
-      LOCAL_STORAGE_PATH: /app/data/uploads
-    ports:
-      - "127.0.0.1:${HTTP_PORT:-8080}:8080"
     volumes:
       - uploads:/app/data/uploads
     read_only: true
-    tmpfs:
-      - /tmp:mode=1777,size=512m
-    security_opt:
-      - no-new-privileges:true
+    tmpfs: ["/tmp:mode=1777,size=512m"]
+    security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     stop_grace_period: 35s
+    networks: [private, outbound]
 
   web:
-    profiles: [web]
     build: ./frontend
     restart: unless-stopped
     depends_on:
       app:
         condition: service_healthy
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    stop_grace_period: 35s
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:8080"
-    security_opt:
-      - no-new-privileges:true
+    networks: [private, tunnel]
+
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      web:
+        condition: service_healthy
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [tunnel]
+
+networks:
+  private:
+    internal: true
+  outbound:
+  tunnel:
 
 volumes:
   db_data:
-  minio_data:
   uploads:

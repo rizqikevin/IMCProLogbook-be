@@ -1,136 +1,125 @@
-# Linux home server dengan Cloudflare Tunnel
+# Docker yang sama untuk Mac dan Linux home server
 
-Stack ini tidak memakai Nginx. React dibuild menjadi file statis dan dilayani oleh
-server Go kecil yang juga meneruskan `/api/` ke backend. Hanya frontend yang
-tersedia di loopback host; PostgreSQL dan API tidak memublikasikan port.
+Kedua lingkungan memakai `docker-compose.yml`, Dockerfile yang sama, dan perintah
+yang sama. Stack menjalankan React melalui server Go, API Go, migration, PostgreSQL,
+dan volume foto lokal. Tidak memakai Nginx. Image dibuild mengikuti arsitektur host.
 
-```text
-Browser HTTPS → Cloudflare / Access → cloudflared → web:8080 → app:8080 → PostgreSQL
-                                                                  → S3 HTTPS
-```
+## Instalasi baru
 
-## 1. Siapkan konfigurasi
-
-Gunakan Docker Engine dan Compose v2 pada Linux, lalu salin/clone repository ini.
-Jalankan dari direktori root repository:
+Jalankan dari root repository dengan Docker Engine/Desktop dan Compose v2:
 
 ```sh
-cp .env.home.example .env.home
-chmod 600 .env.home
+cp .env.example .env
+chmod 600 .env
 openssl rand -hex 32
 ```
 
-Isi `.env.home` menggunakan editor di server:
-
-- `POSTGRES_PASSWORD`: hasil generator hex di atas. Format hex aman untuk URL database.
-- `PUBLIC_ORIGIN`: domain HTTPS sebenarnya, misalnya `https://logbook.perusahaan.com`,
-  tanpa slash terakhir.
-- `S3_BUCKET`, endpoint HTTPS, region, dan kredensial S3-compatible yang sudah tersedia.
-  Contoh file memakai Cloudflare R2; untuk AWS S3 kosongkan endpoint, pilih region
-  bucket, dan set `S3_PATH_STYLE=false`.
-- `TUNNEL_TOKEN`: hanya jika memakai service tunnel opsional di Compose ini.
-
-Bucket harus sudah dibuat dan privat. Backend production tetap mensyaratkan S3;
-Cloudflare Tunnel sendiri tidak menyediakan penyimpanan foto. Kredensial bucket
-memerlukan akses baca, tulis, dan hapus objek aplikasi. Jangan masukkan secret ke
-variabel frontend `VITE_*`.
-
-File ini memakai nama project `machine-logbook` dan volume database tersendiri.
-Data stack development tidak otomatis berpindah. Jangan mengubah password di file
-setelah database terinisialisasi tanpa mengubah password role PostgreSQL juga.
-
-## 2. Jalankan aplikasi
+Masukkan hasil generator ke `POSTGRES_PASSWORD` di `.env`. Password hex aman untuk
+URL database. Lalu jalankan di Mac maupun Linux:
 
 ```sh
-docker compose --env-file .env.home -f compose.home.yml up -d --build
-docker compose --env-file .env.home -f compose.home.yml ps
-curl -f http://127.0.0.1:3000/health
+docker compose up -d --build
+docker compose ps
 ```
 
-Migration dijalankan sebelum API mulai. Buat akun pertama secara interaktif:
+Aplikasi tersedia di `http://localhost:3000`. Frontend, API, dan database dimulai
+bersama; tidak perlu profile `web`. Database dan API hanya berada di jaringan
+Docker. Hanya port frontend yang dipublikasikan ke loopback host.
+
+`STORAGE_DRIVER=local` berlaku untuk development maupun production. Foto berada di
+volume `uploads`, metadata di volume `db_data`. Restart/rebuild container tidak
+menghapus data. Untuk external S3, set `STORAGE_DRIVER=s3` dan isi bucket,
+region, endpoint HTTPS, serta kredensialnya. S3 tetap opsional.
+
+## Memperbarui instalasi yang sudah ada
+
+Jangan menimpa `.env` yang sudah berisi konfigurasi. Tambahkan `POSTGRES_PASSWORD`
+sesuai password database saat ini. Mengubah variabel ini tidak mengubah password
+role dalam volume PostgreSQL yang sudah terinisialisasi.
+
+Pada Mac yang sudah memakai stack lama, nama project dan volume tetap mengikuti
+folder yang sama; volume database serta foto tetap dipakai. Pada home server lama
+yang memakai `compose.home.yml`, pertahankan `COMPOSE_PROJECT_NAME=machine-logbook`
+di `.env` agar perintah baru mengakses volume lama. Salin pengaturan `.env.home`
+yang diperlukan ke `.env`. Jika foto sebelumnya berada di S3, tetap set
+`STORAGE_DRIVER=s3` beserta semua kredensialnya. Pergantian driver tidak memindahkan
+foto secara otomatis.
+
+`compose.home.yml` hanya menjadi wrapper kompatibilitas yang menyertakan file
+utama dan mempertahankan nama project lama. Perintah lama dengan `--env-file
+.env.home -f compose.home.yml` masih tersedia, tetapi pengaturan storage perlu
+eksplisit seperti dijelaskan di atas. Gunakan satu cara menjalankan stack secara
+konsisten, bukan dua project bersamaan.
+
+Service MinIO development bawaan tidak lagi dijalankan oleh file utama. Jika
+sebelumnya memakainya, pertahankan service storage tersebut secara terpisah;
+volume MinIO lama tidak dihapus oleh perubahan ini.
+
+## Akun admin dan operator
 
 ```sh
-docker compose --env-file .env.home -f compose.home.yml exec app /bin/logbook user create --username admin --name "Administrator" --role admin
+docker compose exec app /bin/logbook user create --username admin --name "Administrator" --role admin
+docker compose exec app /bin/logbook user create --username operator1 --name "Operator 1" --role operator
 ```
 
-Gunakan `--role operator` untuk akun operator. Password diminta oleh CLI.
+Password diminta secara interaktif, minimal 12 karakter.
 
-## 3. Hubungkan tunnel yang sudah ada
+## Cloudflare Tunnel di home server
 
-Pilih cara sesuai lokasi connector Anda. Satu hostname menangani frontend dan API;
-path pada Published application route dikosongkan.
+Jika cloudflared sudah berjalan sebagai service di host Linux, arahkan Published
+application route domain Anda ke `http://localhost:3000` tanpa pembatasan path.
+Browser mengakses domain HTTPS tersebut, termasuk API melalui `/api`.
 
-| Lokasi cloudflared | Service URL di Cloudflare |
-| --- | --- |
-| Service systemd pada host Linux yang sama | `http://localhost:3000` |
-| Container dalam network `machine-logbook-tunnel` | `http://web:8080` |
-| Service opsional Compose di bawah | `http://web:8080` |
-
-Untuk connector Docker yang sudah ada, tambahkan network external
-`machine-logbook-tunnel` ke Compose milik connector setelah stack ini dijalankan.
-Sambungkan service cloudflared ke network tersebut. Contoh potongan konfigurasi:
-
-```yaml
-services:
-  cloudflared:
-    # Pertahankan image, command, token, dan network yang sudah ada.
-    networks:
-      - logbook
-networks:
-  logbook:
-    external: true
-    name: machine-logbook-tunnel
-```
-
-`localhost` di dalam container connector menunjuk container itu sendiri,
-sehingga gunakan `web:8080` untuk cara Docker. Jangan mengganti HTTP Host Header
-origin dengan nama service; pertahankan hostname publik browser.
-
-Jika ingin connector khusus dari stack ini, isi token tunnel lalu jalankan:
+Jika ingin menjalankan connector dari Compose ini, isi `TUNNEL_TOKEN` di `.env`:
 
 ```sh
-docker compose --env-file .env.home -f compose.home.yml --profile tunnel up -d
+docker compose --profile tunnel up -d
 ```
 
-Atur Published application route untuk domain `PUBLIC_ORIGIN` dengan service
-`http://web:8080`. Token dibaca dari environment `TUNNEL_TOKEN`.
-Lihat [panduan resmi tunnel](https://developers.cloudflare.com/tunnel/get-started/)
-dan [parameter token](https://developers.cloudflare.com/tunnel/reference/run-parameters/).
+Service URL pada dashboard Cloudflare: `http://web:8080`. Untuk connector Docker
+yang sudah ada, sambungkan ke network `<nama-project>_tunnel` milik stack ini
+melalui konfigurasi external network connector. Lihat nama project dengan
+`docker compose ls`. Jangan gunakan localhost untuk menghubungkan dua container.
+Jika connector sebelumnya memakai `machine-logbook-tunnel`, ubah koneksi network
+ke `machine-logbook_tunnel` pada instalasi dengan nama project `machine-logbook`.
 
-Tambahkan aplikasi Cloudflare Access dan policy pengguna jika ingin gate Zero Trust
-sebelum login operator. Login operator aplikasi tetap diperlukan; integrasi ini
-belum melakukan SSO dari identitas Access. Jangan buat aturan cache yang menyimpan
-respons `/api/*`; server mengirim `Cache-Control: no-store` untuk API.
+Pertahankan HTTP Host Header publik. API memvalidasi same-origin sehingga domain
+tunnel tidak perlu ditulis dalam allowlist CORS. Jika memakai frontend pada origin
+berbeda, isi `CORS_ALLOWED_ORIGINS` dengan origin HTTPS yang tepat.
 
-Buka domain HTTPS lalu uji login, ambil beberapa foto, Done, dan baca arsip.
-HTTPS pada domain publik mendukung penggunaan kamera browser. Tidak perlu membuka
-port router untuk stack ini; koneksi tunnel dibuat keluar oleh cloudflared.
+Cloudflare Access bersifat opsional sebagai gate tambahan; login operator aplikasi
+tetap diperlukan. HTTPS domain diperlukan untuk kamera dan instalasi PWA dari
+ponsel. Jangan cache `/api/*`, manifest, atau service worker secara permanen.
 
-## Operasional
+Panduan connector: [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/get-started/).
 
-Frontend membatasi total foto satu batch ke 95.000.000 byte, dan backend home
-server membatasi request ke 100.000.000 byte. Sesuaikan dengan batas upload yang
-berlaku pada akun Cloudflare; jika batas zone lebih kecil, kecilkan batch foto.
-Timeout di edge juga tetap berlaku pada koneksi lambat. Gunakan tombol pemeriksaan
-hasil upload jika respons terputus, sebelum mencoba unggah ulang.
+## Development React
 
-Untuk pembaruan aplikasi setelah mengambil source terbaru:
+Stack Docker yang sama dapat melayani API ketika menggunakan Vite:
 
 ```sh
-docker compose --env-file .env.home -f compose.home.yml up -d --build
-docker compose --env-file .env.home -f compose.home.yml logs --tail=100 web app
+cd frontend
+npm ci
+npm run dev
 ```
 
-Backup database dan objek S3 sebagai satu kumpulan arsip. Contoh dump database:
+Vite meneruskan `/api` melalui `http://127.0.0.1:3000`. Untuk Go yang dijalankan
+langsung di luar Docker, ubah `API_PROXY_TARGET` ke alamat proses Go tersebut.
+
+## Backup dan update
 
 ```sh
-docker compose --env-file .env.home -f compose.home.yml exec -T db pg_dump -U logbook -d logbook -Fc > logbook.dump
+docker compose exec -T db pg_dump -U logbook -d logbook -Fc > logbook.dump
 ```
 
-Simpan backup di luar server dan uji restore sebelum mengandalkannya. Hindari
-`down -v` karena menghapus volume database. Docker image memakai arsitektur host
-saat build, termasuk Linux amd64 dan arm64. Pin tag/digest image yang sudah diuji
-jika ingin pembaruan image sepenuhnya terkontrol.
+Backup volume `uploads` juga, bukan hanya database. Hentikan penulisan aplikasi
+saat mengambil backup database dan foto agar keduanya konsisten; simpan salinan di
+luar server dan uji restore. Jangan menjalankan `down -v` karena menghapus volume.
+Database/foto di Mac tidak otomatis disalin ke Linux; pindahkan dengan backup dan
+restore bila diperlukan.
 
-Koneksi Cloudflare dan S3 di server Anda belum diuji oleh pengujian lokal repository;
-memerlukan domain, token, dan bucket milik Anda.
+Setelah mengambil source terbaru, jalankan `docker compose up -d --build`.
+Jika memakai connector Compose, jalankan dengan `--profile tunnel`.
+Batas total foto frontend 95.000.000 byte; default request backend 100.000.000 byte.
+Batas upload dan timeout Cloudflare tetap berlaku. Koneksi domain dan penyimpanan
+pada home server Anda memerlukan verifikasi di server tersebut.
