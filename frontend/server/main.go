@@ -74,7 +74,7 @@ func handler(root string, upstream *url.URL) http.Handler {
 func main() {
 	upstreamValue := os.Getenv("API_UPSTREAM")
 	if upstreamValue == "" {
-		upstreamValue = "http://app:8080"
+		upstreamValue = "http://app:18473"
 	}
 	upstream, err := url.Parse(upstreamValue)
 	if err != nil || upstream.Host == "" || (upstream.Scheme != "http" && upstream.Scheme != "https") {
@@ -87,7 +87,7 @@ func main() {
 	if _, err := os.Stat(filepath.Join(root, "index.html")); err != nil {
 		log.Fatal(err)
 	}
-	srv := &http.Server{Addr: ":8080", Handler: handler(root, upstream), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 150 * time.Second, WriteTimeout: 150 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	srv := &http.Server{Addr: ":18472", Handler: handler(root, upstream), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 150 * time.Second, WriteTimeout: 150 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	done := make(chan struct{})
@@ -98,7 +98,7 @@ func main() {
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	log.Print("Frontend listening on :8080")
+	log.Print("Frontend listening on :18472")
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}

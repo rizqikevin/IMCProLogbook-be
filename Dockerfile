@@ -27,13 +27,13 @@ WORKDIR /app
 COPY --from=builder /bin/logbook /bin/logbook
 
 ENV APP_ENV=production \
-    HTTP_ADDR=:8080
+    HTTP_ADDR=:18473
 
-EXPOSE 8080
+EXPOSE 18473
 
 USER 10001:10001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8080/health/ready || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:18473/health/ready || exit 1
 
 ENTRYPOINT ["/bin/logbook"]
 CMD ["serve"]

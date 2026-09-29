@@ -14,7 +14,7 @@ npm run dev
 Buka `http://localhost:5173`, lalu masuk menggunakan akun operator atau admin backend.
 Tidak ada akun/password default yang ditambahkan ke database aplikasi.
 
-Vite meneruskan `/api` ke `http://127.0.0.1:3000`. Jika alamat backend berbeda,
+Vite meneruskan `/api` ke `http://127.0.0.1:18472`. Jika alamat backend berbeda,
 salin `.env.example` menjadi `.env.local` lalu ubah `API_PROXY_TARGET`.
 Untuk akses lintas domain, set `VITE_API_BASE_URL` ke origin backend dan tambahkan
 origin frontend pada `CORS_ALLOWED_ORIGINS` backend. Nilai `VITE_*` menjadi bagian
@@ -79,7 +79,7 @@ Dari direktori backend:
 docker compose up --build -d
 ```
 
-Frontend ada di `http://localhost:3000`. Server Go meneruskan `/api` ke service `app` dan
+Frontend ada di `http://localhost:18472`. Server Go meneruskan `/api` ke service `app` dan
 menangani deep link React Router. Tambahkan TLS pada ingress untuk penggunaan production
 dan kamera ponsel. `WEB_PORT` dapat mengganti port lokal frontend.
 

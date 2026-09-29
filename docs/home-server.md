@@ -11,15 +11,18 @@ Tidak perlu membuat `.env`. Konfigurasi aplikasi ditulis langsung dalam
 `docker-compose.yml`: frontend React ikut dibuild, API Go, migration, PostgreSQL,
 dan penyimpanan foto lokal. Tidak memakai Nginx, S3, atau MinIO.
 
-Buka `http://localhost:3000`. Foto disimpan dalam Docker volume `uploads` dan
+Buka `http://localhost:18472`. Foto disimpan dalam Docker volume `uploads` dan
 metadata dalam `db_data`. Rebuild/restart tidak menghapus kedua volume tersebut.
 Jangan jalankan `docker compose down -v` jika ingin mempertahankan data.
+
+Frontend mendengarkan port 18472. Backend memakai port 18473 di jaringan Docker
+(`app:18473`), tanpa port publik; frontend meneruskan `/api` ke backend tersebut.
 
 ## Konfigurasi sementara
 
 Database memakai username/password internal `logbook` yang tertulis di Compose.
 Database dan API tidak memublikasikan port ke host. Hanya frontend yang tersedia
-di `127.0.0.1:3000`. Akun aplikasi tetap dibuat sendiri, bukan memakai password
+di `127.0.0.1:18472`. Akun aplikasi tetap dibuat sendiri, bukan memakai password
 PostgreSQL. Konfigurasi `.env` lama seperti `STORAGE_DRIVER=s3` tidak diteruskan
 ke container; Compose menetapkan `STORAGE_DRIVER=local` secara langsung.
 
@@ -57,9 +60,9 @@ Gunakan connector Cloudflare yang sudah berjalan di home server. Connector tidak
 lagi dibundel dalam Compose aplikasi sehingga token tidak perlu dimasukkan ke file
 project atau GitHub.
 
-- Connector di host Linux: arahkan service ke `http://localhost:3000`.
+- Connector di host Linux: arahkan service ke `http://localhost:18472`.
 - Connector Docker: sambungkan ke network `<nama-project>_tunnel`, lalu arahkan ke
-  `http://web:8080`. Pertahankan sambungan network tersebut dalam Compose connector.
+  `http://web:18472`. Pertahankan sambungan network tersebut dalam Compose connector.
 
 Satu hostname tanpa pembatasan path melayani frontend serta `/api`. Pertahankan
 HTTP Host Header publik. Login operator tetap diperlukan meskipun memakai Access.
@@ -74,7 +77,7 @@ npm ci
 npm run dev
 ```
 
-Vite meneruskan API ke port 3000. Environment frontend hanya diperlukan jika ingin
+Vite meneruskan API ke port 18472. Environment frontend hanya diperlukan jika ingin
 mengubah alamat development proxy, bukan untuk menjalankan Docker Compose.
 
 ## Backup dan update
