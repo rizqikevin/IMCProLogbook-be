@@ -1,11 +1,12 @@
-# Shared stack for macOS development and Linux home servers.
+# Shared local-storage stack for macOS and Linux; no .env required.
+# PostgreSQL uses a fixed internal credential for this temporary setup.
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: logbook
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: logbook
       POSTGRES_DB: logbook
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -21,7 +22,7 @@ services:
     image: machine-logbook:local
     command: [migrate, up]
     environment:
-      DATABASE_URL: postgres://logbook:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/logbook?sslmode=disable
+      DATABASE_URL: postgres://logbook:logbook@db:5432/logbook?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
@@ -34,27 +35,21 @@ services:
     image: machine-logbook:local
     restart: unless-stopped
     environment:
-      APP_ENV: ${APP_ENV:-production}
+      APP_ENV: production
       HTTP_ADDR: :8080
-      DATABASE_URL: postgres://logbook:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/logbook?sslmode=disable
-      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      DATABASE_URL: postgres://logbook:logbook@db:5432/logbook?sslmode=disable
+      STORAGE_DRIVER: local
       LOCAL_STORAGE_PATH: /app/data/uploads
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
-      S3_BUCKET: ${S3_BUCKET:-}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      S3_ENDPOINT: ${S3_ENDPOINT:-}
-      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      SESSION_TTL: ${SESSION_TTL:-12h}
-      MAX_REQUEST_BYTES: ${MAX_REQUEST_BYTES:-100000000}
-      MAX_PHOTO_BYTES: ${MAX_PHOTO_BYTES:-10485760}
-      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-40000000}
-      MAX_PHOTOS_PER_UPLOAD: ${MAX_PHOTOS_PER_UPLOAD:-20}
-      MAX_PHOTOS_PER_LOGBOOK: ${MAX_PHOTOS_PER_LOGBOOK:-100}
-      MAX_CONCURRENT_UPLOADS: ${MAX_CONCURRENT_UPLOADS:-4}
-      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-2m}
-      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-30s}
+      CORS_ALLOWED_ORIGINS: ""
+      SESSION_TTL: 12h
+      MAX_REQUEST_BYTES: 100000000
+      MAX_PHOTO_BYTES: 10485760
+      MAX_IMAGE_PIXELS: 40000000
+      MAX_PHOTOS_PER_UPLOAD: 20
+      MAX_PHOTOS_PER_LOGBOOK: 100
+      MAX_CONCURRENT_UPLOADS: 4
+      REQUEST_TIMEOUT: 2m
+      SHUTDOWN_TIMEOUT: 30s
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -65,7 +60,7 @@ services:
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     stop_grace_period: 35s
-    networks: [private, outbound]
+    networks: [private]
 
   web:
     build: ./frontend
@@ -78,28 +73,13 @@ services:
     cap_drop: [ALL]
     stop_grace_period: 35s
     ports:
-      - "127.0.0.1:${WEB_PORT:-3000}:8080"
+      - "127.0.0.1:3000:8080"
     networks: [private, tunnel]
 
-  cloudflared:
-    profiles: [tunnel]
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: [tunnel, --no-autoupdate, run]
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
-    depends_on:
-      web:
-        condition: service_healthy
-    read_only: true
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
-    networks: [tunnel]
 
 networks:
   private:
     internal: true
-  outbound:
   tunnel:
 
 volumes:
