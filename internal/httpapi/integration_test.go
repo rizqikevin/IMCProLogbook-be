@@ -266,7 +266,7 @@ func TestIntegrationArchiveHTTPWorkflow(t *testing.T) {
 	for i, machine := range machines.Items {
 		names[i] = machine.Name
 	}
-	if !slices.Equal(names, []string{"MAILENDER 222", "MS3", "COATING 1", "COATING 2", "COATING 3"}) {
+	if !slices.Equal(names, []string{"MAILENDER 222", "MS3", "COATING 1", "COATING 2", "COATING 3", "RuiYuan"}) {
 		t.Fatalf("unexpected machines: %v", names)
 	}
 	shiftsResponse := app.request(http.MethodGet, "/api/v1/shifts", operator.AccessToken, "", nil)

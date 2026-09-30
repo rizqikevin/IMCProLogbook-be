@@ -198,7 +198,7 @@ paths:
       operationId: listMachines
       summary: Daftar mesin aktif
       description: |
-        Data awal adalah MAILENDER 222, MS3, COATING 1, COATING 2, dan COATING 3.
+        Data awal adalah MAILENDER 222, MS3, COATING 1, COATING 2, COATING 3, dan RuiYuan.
         Gunakan ID dari respons ini saat membuat logbook. Urutan berdasarkan ID naik.
       responses:
         '200':

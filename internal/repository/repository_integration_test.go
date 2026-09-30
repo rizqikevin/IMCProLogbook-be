@@ -122,7 +122,7 @@ func TestIntegrationReferencesAndPagination(t *testing.T) {
 	for i := range machines {
 		names[i] = machines[i].Name
 	}
-	if !slices.Equal(names, []string{"MAILENDER 222", "MS3", "COATING 1", "COATING 2", "COATING 3"}) {
+	if !slices.Equal(names, []string{"MAILENDER 222", "MS3", "COATING 1", "COATING 2", "COATING 3", "RuiYuan"}) {
 		t.Fatalf("unexpected seed machines: %v", names)
 	}
 	shifts, err := repo.Shifts(ctx)

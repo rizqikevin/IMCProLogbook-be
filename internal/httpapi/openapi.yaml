@@ -263,7 +263,7 @@ paths:
       description: |
         Kembalikan semua mesin yang aktif.
 
-        Mesin awal: MAILENDER 222, MS3, COATING 1, COATING 2, COATING 3.
+        Mesin awal: MAILENDER 222, MS3, COATING 1, COATING 2, COATING 3, RuiYuan.
       responses:
         "200":
           description: Daftar mesin
@@ -282,6 +282,7 @@ paths:
                   - { id: 3, name: "COATING 1" }
                   - { id: 4, name: "COATING 2" }
                   - { id: 5, name: "COATING 3" }
+                  - { id: 6, name: "RuiYuan" }
 
   /api/v1/shifts:
     get:
