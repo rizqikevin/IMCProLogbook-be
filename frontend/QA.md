@@ -110,3 +110,15 @@ mesin, tanggal, serta shift yang benar, termasuk saat menambah halaman.
 - Liveliness PASS: tetap ENERGY 1 / RHYTHM 2 / MOTION 1 dengan navy dan foto asli.
 - Craftsmanship PASS: screenshot form mobile dan pilihan mesin diperiksa,
   build Docker final berhasil, alur unggah dan peringatan draft tetap teruji.
+
+## Teks ringkas dan jarak mobile · 30 September 2026
+
+- Hard Gate PASS: delapan unit test dan delapan E2E desktop/mobile lulus,
+  termasuk unggah, urutkan foto, tambah halaman, draft, shift kosong, serta
+  tanggal H-1. Axe dan pemeriksaan overflow juga lulus.
+- Purpose Gate PASS: label tindakan disederhanakan dan judul berulang dihapus
+  untuk mempercepat pembacaan; alasan tercatat di DESIGN.md.
+- Liveliness PASS: ENERGY 1 / RHYTHM 2 / MOTION 1 tetap konsisten; navy, foto
+  mesin, dan logo asli dipertahankan tanpa langkah atau pilihan baru.
+- Craftsmanship PASS: screenshot login dan form mobile serta pilihan mesin
+  desktop diperiksa. Build production Docker berhasil, container sehat.

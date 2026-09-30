@@ -55,14 +55,12 @@ export default function Book() {
           {location.state?.saved && (
             <div className="notice notice-success saved-notice" role="status">
               <Icon name="check" />
-              <span>
-                Arsip berhasil disimpan. Seluruh foto sudah terunggah.
-              </span>
+              <span>Logbook tersimpan. Semua foto berhasil diunggah.</span>
               <Link
                 className="button button-primary"
                 to={`/?action=new&shift_id=${book.shift.id}`}
               >
-                Input mesin lain
+                Lanjut mesin lain
               </Link>
             </div>
           )}

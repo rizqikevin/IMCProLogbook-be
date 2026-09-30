@@ -255,13 +255,8 @@ export default function Capture() {
       </Link>
       <div className="page-heading">
         <div>
-          <p className="section-label">
-            {id ? "Lanjutkan catatan" : "Dokumentasi produksi"}
-          </p>
-          <h1>{id ? "Tambah halaman" : "Arsipkan logbook"}</h1>
-          <p className="muted">
-            Ambil foto satu per satu. Simpan semuanya saat sudah selesai.
-          </p>
+          <h1>{id ? "Tambah halaman" : "Tambah logbook"}</h1>
+          <p className="muted">Ambil foto, periksa urutannya, lalu simpan.</p>
         </div>
         <span className="draft-label">Belum disimpan</span>
       </div>
@@ -281,8 +276,7 @@ export default function Capture() {
             <div className="section-heading">
               <span className="step-number">01</span>
               <div>
-                <h2>Identitas logbook</h2>
-                <p>Tentukan catatan untuk mesin dan shift yang sesuai.</p>
+                <h2>Mesin dan shift</h2>
               </div>
             </div>
             {id ? (
@@ -359,7 +353,7 @@ export default function Capture() {
               <span className="step-number">02</span>
               <div>
                 <h2>Halaman logbook</h2>
-                <p>Urutan foto menjadi urutan halaman dalam arsip.</p>
+                <p>Urutkan foto sesuai halaman logbook.</p>
               </div>
               <span className="photo-tally">
                 {files.length} / {maximum}
@@ -429,13 +423,13 @@ export default function Capture() {
                 <div>
                   <h3>
                     {files.length
-                      ? "Masih ada halaman lain?"
-                      : "Mulai dari halaman pertama."}
+                      ? "Tambah foto berikutnya"
+                      : "Ambil foto logbook"}
                   </h3>
                   <p>
                     {files.length
-                      ? "Tambahkan foto berikutnya sebelum menyimpan."
-                      : "Buka kamera atau pilih foto yang sudah diambil."}
+                      ? "Semua foto disimpan sekaligus."
+                      : "Gunakan kamera atau pilih dari galeri."}
                   </p>
                 </div>
               </div>
@@ -551,7 +545,7 @@ export default function Capture() {
               disabled={busy || uncertain || !files.length}
             >
               <Icon name="check" />
-              {uploading ? "Menyimpan arsip…" : "Done · Simpan arsip"}
+              {uploading ? "Menyimpan…" : "Simpan logbook"}
             </button>
             {uploading && (
               <div className="upload-progress" role="status">
@@ -569,8 +563,8 @@ export default function Capture() {
             )}
           </div>
           <p className="draft-note">
-            Foto belum diunggah sebelum Anda menekan Done. Pilihan foto tidak
-            disimpan jika halaman ditutup.
+            Foto belum tersimpan sampai Anda menekan Simpan logbook. Jangan
+            tutup halaman sebelum selesai.
           </p>
         </form>
       )}

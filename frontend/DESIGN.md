@@ -43,7 +43,7 @@ advance one slot at a time, including empty shifts. Shift 3 advances to Shift 1
 on the next log date. Empty slots offer a prefilled new archive form. No counter
 entry or comparison calculation is introduced.
 
-Successful uploads offer an explicit “Input mesin lain” action alongside the
+Successful uploads offer an explicit “Lanjut mesin lain” action alongside the
 confirmation. The existing photo chooser then opens a new capture form directly,
 carrying only the shift. New forms default to the previous local calendar day;
 an explicitly selected empty shift retains its date. The success action spans
@@ -57,3 +57,11 @@ defaults to H-1 with a single editable date field. The save bar repeats
 the actual machine, date, and shift, including when appending to an existing archive.
 These controls reuse the navy palette, 44px targets, and ENERGY 1 / RHYTHM 2 /
 MOTION 1; no new visual assets or dashboard metrics are added.
+
+## Simpler operator language
+
+Use short Indonesian actions: Tambah logbook, Simpan logbook, and Lanjut mesin
+lain. Remove repeated chooser headings and introductory labels. Keep draft,
+upload, and error guidance explicit. Mobile capture reduces heading spacing
+without shrinking touch targets. Routes, date defaults, upload behavior, and
+machine/shift navigation remain unchanged.

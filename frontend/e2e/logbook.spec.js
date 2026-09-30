@@ -13,13 +13,13 @@ async function login(page, username = "operator", choose = true) {
       response.url().endsWith("/auth/login") &&
       response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Masuk ke arsip" }).click();
+  await page.getByRole("button", { name: "Masuk" }).click();
   const response = await responsePromise;
   if (response.status() === 429) {
     test.setTimeout(120_000);
     const retrySeconds = Number(response.headers()["retry-after"] || 60);
     await new Promise((resolve) => setTimeout(resolve, retrySeconds * 1000));
-    await page.getByRole("button", { name: "Masuk ke arsip" }).click();
+    await page.getByRole("button", { name: "Masuk" }).click();
   }
   await expect(
     page.getByRole("heading", { name: "Pilih mesin", exact: true }),
@@ -87,7 +87,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   });
   await page.getByLabel("Nama pengguna", { exact: true }).fill("operator");
   await page.getByLabel("Kata sandi", { exact: true }).fill("wrong-password");
-  await page.getByRole("button", { name: "Masuk ke arsip" }).click();
+  await page.getByRole("button", { name: "Masuk" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Nama pengguna atau kata sandi salah",
   );
@@ -98,7 +98,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   await accessible(page);
   await page.getByRole("link", { name: "Buat arsip pertama" }).click();
   await expect(
-    page.getByRole("heading", { name: "Arsipkan logbook", exact: true }),
+    page.getByRole("heading", { name: "Tambah logbook", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("combobox", { name: "Mesin", exact: true }),
@@ -153,13 +153,11 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
     await noOverflow(page);
   }
   await page.setViewportSize(originalViewport);
-  await page.getByRole("button", { name: "Done · Simpan arsip" }).click();
+  await page.getByRole("button", { name: "Simpan logbook" }).click();
   await expect(
     page.getByRole("heading", { name: "MAILENDER 222", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText(
-    "Arsip berhasil disimpan",
-  );
+  await expect(page.getByRole("status")).toContainText("Logbook tersimpan");
   expect(uploads).toBe(1);
   const bookPath = new URL(page.url()).pathname;
   const book = await page.evaluate(async (path) => {
@@ -190,7 +188,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
     fullPage: true,
   });
   await page
-    .getByRole("link", { name: "Input mesin lain", exact: true })
+    .getByRole("link", { name: "Lanjut mesin lain", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Pilih mesin", exact: true }),
@@ -241,12 +239,12 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
     },
     { times: 1 },
   );
-  await page.getByRole("button", { name: "Done · Simpan arsip" }).click();
+  await page.getByRole("button", { name: "Simpan logbook" }).click();
   await expect(
     page.getByText("Periksa arsip sebelum mengunggah ulang", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Done · Simpan arsip" }),
+    page.getByRole("button", { name: "Simpan logbook" }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Periksa hasil unggahan" }).click();
   await expect(page.getByText("3 halaman logbook")).toBeVisible();
@@ -277,7 +275,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   ).toBeVisible();
   await page.getByRole("button", { name: "Keluar dari akun" }).click();
   await expect(
-    page.getByRole("heading", { name: "Masuk ke logbook." }),
+    page.getByRole("heading", { name: "Masuk ke logbook" }),
   ).toBeVisible();
   await login(page, "admin");
   await page.goto(bookPath);
@@ -344,9 +342,7 @@ test("validation, network errors, keyboard and expired-session handling", async 
     }),
   );
   await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Masuk ke arsip" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Masuk" })).toBeVisible();
   expect(
     await page.evaluate(() =>
       sessionStorage.getItem("machine-logbook-session"),
@@ -412,7 +408,9 @@ test("machine-first navigation and empty shifts retain machine/date/shift", asyn
     page.getByRole("link", { name: "Arsip baru", exact: true }),
   ).toHaveCount(0);
   expect(requests).toEqual([]);
-  await expect(page.getByRole("navigation", { name: "Tujuan logbook" })).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Tujuan logbook" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "RuiYuan", exact: true }).click();
   await page.getByRole("link", { name: "Arsip baru", exact: true }).click();
   await expect(page).toHaveURL(/\/new\?machine_id=6/);

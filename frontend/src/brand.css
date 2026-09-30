@@ -14,6 +14,9 @@
   }
 }
 @layer components {
+  .change-machine-button {
+    margin-bottom: 1rem;
+  }
   .archive-machine-context span {
     font-size: 0.8rem;
     color: var(--muted);
@@ -202,8 +205,18 @@
       padding-top: 1.5rem;
     }
     .page-heading {
-      padding-bottom: 1.25rem;
+      padding-bottom: 1rem;
       gap: 1rem;
+    }
+    .capture-page .page-heading {
+      margin-bottom: 1.25rem;
+    }
+    .capture-page .section-heading {
+      margin-bottom: 1rem;
+    }
+    .capture-page .selected-machine-preview {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
     }
     .filter-bar {
       padding: 1rem;

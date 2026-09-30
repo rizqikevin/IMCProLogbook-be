@@ -74,10 +74,7 @@ export default function ShiftArchive() {
       ) : (
         <section className="empty-state">
           <h2>Belum ada arsip</h2>
-          <p>
-            Belum ada logbook untuk {formatDate(date)}, Shift {shiftId} pada
-            mesin ini.
-          </p>
+          <p>Logbook shift ini belum diunggah.</p>
           <Link
             className="button button-primary"
             to={`/new?${queryString({ machine_id: machineId, date, shift_id: shiftId })}`}

@@ -118,7 +118,6 @@ export default function Archives() {
     <div className="page archives-page">
       <div className="page-heading">
         <div>
-          <p className="section-label">Catatan produksi</p>
           <h1>
             {machine ? selectedMachine?.name || "Arsip mesin" : "Pilih mesin"}
           </h1>
@@ -126,8 +125,8 @@ export default function Archives() {
             {machine
               ? "Arsip logbook berdasarkan tanggal dan shift."
               : creating
-                ? `Pilih mesin untuk input berikutnya. Tanggal awal ${formatDate(yesterday())} (H-1)${shift ? ` · Shift ${shift}` : ""}. Bisa diubah sebelum mengambil foto.`
-                : "Pilih mesin untuk membuka atau menambahkan arsip logbook."}
+                ? `Lanjut foto · ${formatDate(yesterday())}${shift ? ` · Shift ${shift}` : ""}. Tanggal dan shift bisa diubah.`
+                : "Buka atau tambah logbook mesin."}
           </p>
         </div>
         {machine ? (
@@ -145,16 +144,6 @@ export default function Archives() {
       <div className="archive-workspace">
         {!machine && (
           <aside className="machine-panel" aria-label="Pilih mesin">
-            <div className="machine-gallery-heading">
-              <div>
-                <h2>Mesin produksi</h2>
-                <p>
-                  {creating
-                    ? "Pilih mesin untuk mulai mengambil foto."
-                    : "Pilih mesin untuk melihat arsipnya."}
-                </p>
-              </div>
-            </div>
             <div className="machine-buttons">
               {catalog.machines.map((item, index) => (
                 <button
@@ -184,7 +173,8 @@ export default function Archives() {
         )}
         {machine && (
           <section className="archive-content" aria-label="Daftar arsip">
-            <Link className="back-link" to="/">
+            <Link className="button button-outline change-machine-button" to="/">
+              <Icon name="back" />
               Pilih mesin lain
             </Link>
             <div className="archive-machine-context">

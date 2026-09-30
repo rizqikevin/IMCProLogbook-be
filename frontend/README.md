@@ -34,8 +34,8 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 2. Pilih foto mesin, lalu buka **Arsip baru**. Mesin sudah terkunci; pilih tanggal dan shift.
 3. **Buka kamera** untuk mengambil beberapa foto tanpa menutup kamera; atau **Pilih foto**.
 4. Periksa foto, hapus foto yang tidak diperlukan, atau ubah urutannya.
-5. Tekan **Done · Simpan arsip**. Semua foto dikirim dalam satu request multipart.
-   Setelah berhasil, **Input mesin lain** membuka pilihan mesin dan langsung menuju
+5. Tekan **Simpan logbook**. Semua foto dikirim dalam satu request multipart.
+   Setelah berhasil, **Lanjut mesin lain** membuka pilihan mesin dan langsung menuju
    form baru dengan shift sebelumnya. Foto sebelumnya tidak dibawa ke form baru.
 6. Cari arsip di mesin terpilih menggunakan rentang tanggal dan shift. Detail menyediakan
    navigasi halaman, perbesar foto, unduh foto, dan tambah halaman.
@@ -64,7 +64,7 @@ menjadi JPEG sebelum dipilih.
 
 ## Perilaku penyimpanan dan retry
 
-- Foto sebelum Done hanya berada di memori tab. Ada peringatan saat meninggalkan
+- Foto sebelum disimpan hanya berada di memori tab. Ada peringatan saat meninggalkan
   halaman; tidak ada sinkronisasi offline atau penyimpanan draft permanen.
 - Session token disimpan di `sessionStorage` (atau memori jika storage tidak tersedia).
   Password tidak disimpan. Sesi dicek ke backend setelah refresh dan dibersihkan saat 401.

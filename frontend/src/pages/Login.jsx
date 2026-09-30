@@ -80,9 +80,8 @@ export default function Login() {
       </section>
       <section className="login-form-panel">
         <div className="login-form-wrap">
-          <p className="section-label">Akses operator</p>
-          <h2>Masuk ke logbook.</h2>
-          <p className="muted">Masuk untuk melihat dan mengarsipkan logbook.</p>
+          <h2>Masuk ke logbook</h2>
+          <p className="muted">Gunakan akun operator atau admin Anda.</p>
           <form onSubmit={submit} className="login-form">
             <ErrorNotice error={error} />
             <label>
@@ -128,13 +127,11 @@ export default function Login() {
               type="submit"
               disabled={busy}
             >
-              {busy ? "Memeriksa akun…" : "Masuk ke arsip"}
+              {busy ? "Memeriksa akun…" : "Masuk"}
             </button>
           </form>
           <p className="login-help">
-            Belum memiliki akun atau lupa kata sandi?
-            <br />
-            Hubungi administrator untuk bantuan akses.
+            Butuh akun atau lupa kata sandi? Hubungi admin.
           </p>
         </div>
         <p className="login-bottom">IMCPro · Machine Logbook Archive</p>
