@@ -27,3 +27,11 @@ Login uses a pale navy panel and more compact mobile typography. White filter
 surfaces distinguish search controls from archive results. Numbered photo sections
 and the raised save bar separate preparation from submission. Existing accessible
 controls and the ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain in place.
+
+## Machine photography
+
+User-supplied machine cutouts identify machine filters: MAILENDER, MS3, COATING
+(shared by COATING 1–3), and RuiYuan. Contain-fit images preserve the full machine.
+Six columns on wide screens become three on tablets and two on phones; a navy
+caption and check mark identify the selected filter. Capture shows a smaller
+machine preview to help the operator verify the selected equipment.

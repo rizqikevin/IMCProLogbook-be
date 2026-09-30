@@ -303,6 +303,11 @@
   .machine-option.selected .machine-photo-surface {
     background: #eeedf8;
   }
+  .machine-option.selected {
+    background: var(--green);
+    border-color: var(--green);
+    color: white;
+  }
   .selected-machine-preview {
     display: flex;
     align-items: center;
