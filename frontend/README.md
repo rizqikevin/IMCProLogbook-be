@@ -31,12 +31,23 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 ## Alur penggunaan
 
 1. Login dengan akun masing-masing operator.
-2. Buka **Arsip baru**, pilih mesin, tanggal logbook, dan shift.
+2. Pilih foto mesin, lalu buka **Arsip baru**. Mesin sudah terkunci; pilih tanggal dan shift.
 3. **Buka kamera** untuk mengambil beberapa foto tanpa menutup kamera; atau **Pilih foto**.
 4. Periksa foto, hapus foto yang tidak diperlukan, atau ubah urutannya.
 5. Tekan **Done · Simpan arsip**. Semua foto dikirim dalam satu request multipart.
-6. Cari arsip dengan filter mesin, rentang tanggal, dan shift. Detail arsip menyediakan
+   Setelah berhasil, **Input mesin lain** membuka pilihan mesin dan langsung menuju
+   form baru dengan shift sebelumnya. Foto sebelumnya tidak dibawa ke form baru.
+6. Cari arsip di mesin terpilih menggunakan rentang tanggal dan shift. Detail menyediakan
    navigasi halaman, perbesar foto, unduh foto, dan tambah halaman.
+7. Gunakan **Shift sebelumnya / Shift berikutnya** untuk berpindah pada mesin yang sama.
+   Setelah Shift 3, tujuan berikutnya adalah Shift 1 tanggal berikutnya. Shift kosong
+   tetap ditampilkan dengan **Tambah logbook** yang mengisi mesin, tanggal, dan shift.
+   Gunakan **Pilih mesin lain** untuk kembali ke pilihan mesin.
+
+Tanggal awal arsip baru adalah **H-1 berdasarkan tanggal lokal perangkat**, dihitung
+ulang setiap form baru dibuka dan tetap dapat diubah. Jika menambah dari shift
+kosong yang sudah dipilih, tanggal dan shift mengikuti tujuan tersebut. Menambah
+halaman ke arsip yang ada tetap menggunakan tanggal arsip itu.
 
 Operator dapat membaca dan menambah arsip. Hanya admin yang mendapat tombol hapus;
 backend tetap memverifikasi hak akses. Foto dibaca sebagai blob menggunakan Bearer token,

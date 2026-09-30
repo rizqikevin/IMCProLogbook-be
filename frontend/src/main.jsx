@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Archives from "./pages/Archives";
 import Book from "./pages/Book";
 import Capture from "./pages/Capture";
+import ShiftArchive from "./pages/ShiftArchive";
 import "./styles.css";
 import "./brand.css";
 
@@ -28,6 +29,10 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Archives /> },
           { path: "/new", element: <Capture /> },
+          {
+            path: "/machines/:machineId/shifts/:date/:shiftId",
+            element: <ShiftArchive />,
+          },
           { path: "/logbooks/:id", element: <Book /> },
           { path: "/logbooks/:id/add", element: <Capture /> },
         ],

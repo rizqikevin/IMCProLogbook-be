@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ShiftNavigation from "../components/ShiftNavigation";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useBook, usePhoto } from "../hooks";
@@ -11,6 +12,10 @@ export default function Book() {
   const { user } = useAuth();
   const { book, loading, error, retry } = useBook(id);
   const [index, setIndex] = useState(0);
+  useEffect(() => {
+    setIndex(0);
+    setZoom(false);
+  }, [id]);
   const [zoom, setZoom] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -25,7 +30,7 @@ export default function Book() {
     setDeleteError(null);
     try {
       await request(`/logbooks/${id}`, { method: "DELETE" });
-      navigate("/", { replace: true });
+      navigate(`/?machine_id=${book.machine.id}`, { replace: true });
     } catch (error) {
       setDeleteError(error);
     } finally {
@@ -34,9 +39,12 @@ export default function Book() {
   }
   return (
     <div className="page book-page">
-      <Link to="/" className="back-link">
+      <Link
+        to={book ? `/?machine_id=${book.machine.id}` : "/"}
+        className="back-link"
+      >
         <Icon name="back" />
-        Semua arsip
+        Arsip mesin
       </Link>
       {loading ? (
         <Loading />
@@ -45,11 +53,17 @@ export default function Book() {
       ) : (
         <>
           {location.state?.saved && (
-            <div className="notice notice-success" role="status">
+            <div className="notice notice-success saved-notice" role="status">
               <Icon name="check" />
               <span>
                 Arsip berhasil disimpan. Seluruh foto sudah terunggah.
               </span>
+              <Link
+                className="button button-primary"
+                to={`/?action=new&shift_id=${book.shift.id}`}
+              >
+                Input mesin lain
+              </Link>
             </div>
           )}
           <div className="page-heading">
@@ -70,6 +84,11 @@ export default function Book() {
               </Link>
             )}
           </div>
+          <ShiftNavigation
+            machine={book.machine.id}
+            date={book.log_date}
+            shift={book.shift.id}
+          />
           <div className="book-workspace">
             <section className="page-viewer" aria-label="Foto logbook">
               <div className="viewer-toolbar">

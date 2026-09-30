@@ -65,3 +65,32 @@ Six desktop/mobile E2E tests passed, including upload workflows, axe, and overfl
 After correcting selected-card caption contrast, both gallery tests passed again
 at widths 320, 390, 768, and 1440. Screenshots were reviewed and the Docker frontend
 rebuilt. Photos use contain-fit without cropping; coating machines share one photo.
+
+## Machine-first archive flow · 30 September 2026
+
+Seven unit tests and eight desktop/mobile E2E tests passed. Coverage includes
+machine selection before archive access, locked machine on creation, previous/next
+shift navigation into existing and empty slots, year/date rollover, prefilled
+creation from an empty shift, upload/append/delete, accessibility and overflow.
+The login test helper honors the server's Retry-After header when the expanded
+suite reaches the existing login rate limit; production limits are unchanged.
+Desktop chooser and empty-shift screenshots, plus mobile detail and empty-shift
+screenshots, were inspected. Production build and Docker frontend rebuild passed;
+the web container is healthy on localhost:18472.
+
+## Input mesin berikutnya dan tanggal H-1 · 30 September 2026
+
+Delapan unit test dan delapan E2E desktop/mobile lulus. Setelah unggah berhasil,
+pengujian memilih Input mesin lain, memilih MS3, dan memeriksa mesin, shift yang
+terbawa, tanggal H-1, serta form tanpa foto sebelumnya. Unit test mencakup H-1
+saat pergantian tahun dan tahun kabisat. Tanggal eksplisit dari shift kosong tetap
+diuji. Build Docker berhasil dan container frontend diperbarui.
+
+- Hard Gate PASS: E2E menguji alur unggah, tombol lanjut, keyboard, axe, error,
+  dan overflow; screenshot detail desktop/mobile diperiksa.
+- Purpose Gate PASS: tombol lanjut berada di konfirmasi unggah untuk mempercepat
+  input mesin berikutnya; alasan dan aturan tanggal tercatat di DESIGN.md.
+- Liveliness PASS: ENERGY 1 / RHYTHM 2 / MOTION 1 tetap dipakai; navy, logo asli,
+  foto mesin, dan jarak antarkontrol mengikuti desain aplikasi yang sudah ada.
+- Craftsmanship PASS: navigasi memakai tautan nyata, form berikutnya kosong,
+  tidak ada foto atau statistik tambahan; delapan E2E dan build production lulus.

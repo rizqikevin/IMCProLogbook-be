@@ -2,16 +2,32 @@ import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { createHash } from "node:crypto";
 
-async function login(page, username = "operator") {
-  await page.goto("/login");
+async function login(page, username = "operator", choose = true) {
+  await page.goto("/");
   await page.getByLabel("Nama pengguna", { exact: true }).fill(username);
   await page
     .getByLabel("Kata sandi", { exact: true })
     .fill("frontend-test-only-123");
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/auth/login") &&
+      response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Masuk ke arsip" }).click();
+  const response = await responsePromise;
+  if (response.status() === 429) {
+    test.setTimeout(120_000);
+    const retrySeconds = Number(response.headers()["retry-after"] || 60);
+    await new Promise((resolve) => setTimeout(resolve, retrySeconds * 1000));
+    await page.getByRole("button", { name: "Masuk ke arsip" }).click();
+  }
   await expect(
-    page.getByRole("heading", { name: "Arsip logbook", exact: true }),
+    page.getByRole("heading", { name: "Pilih mesin", exact: true }),
   ).toBeVisible();
+  if (choose)
+    await page
+      .getByRole("button", { name: "MAILENDER 222", exact: true })
+      .click();
 }
 
 async function noOverflow(page) {
@@ -84,9 +100,9 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   await expect(
     page.getByRole("heading", { name: "Arsipkan logbook", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Mesin", exact: true })
-    .selectOption("1");
+  await expect(
+    page.getByRole("combobox", { name: "Mesin", exact: true }),
+  ).toBeDisabled();
   await expect(
     page.getByRole("combobox", { name: "Mesin", exact: true }),
   ).toHaveValue("1");
@@ -117,7 +133,7 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   await page
     .getByRole("button", { name: "Pindahkan foto 2 lebih awal" })
     .click();
-  await page.getByRole("link", { name: "Semua arsip", exact: true }).click();
+  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText(
     "Tinggalkan foto pilihan?",
   );
@@ -173,6 +189,27 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
     path: testInfo.outputPath("detail.png"),
     fullPage: true,
   });
+  await page
+    .getByRole("link", { name: "Input mesin lain", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Pilih mesin", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "MS3", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Mesin", exact: true }),
+  ).toHaveValue("2");
+  await expect(
+    page.getByRole("combobox", { name: "Shift", exact: true }),
+  ).toHaveValue("2");
+  const previousDay = await page.evaluate(() => {
+    const day = new Date();
+    day.setDate(day.getDate() - 1);
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+  });
+  await expect(page.getByLabel("Tanggal logbook")).toHaveValue(previousDay);
+  await expect(page.getByText("Belum ada foto dipilih", { exact: true })).toBeVisible();
+  await page.goto(bookPath);
   await page.getByRole("link", { name: "Tambah halaman" }).click();
   await page.getByRole("button", { name: "Buka kamera" }).click();
   const camera = page.getByRole("dialog");
@@ -214,7 +251,14 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   expect(uploads).toBe(2);
   await page.reload();
   await expect(page.getByText("3 halaman logbook")).toBeVisible();
-  await page.getByRole("link", { name: "Semua arsip", exact: true }).click();
+  await page.getByRole("link", { name: /Shift berikutnya/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Shift sebelumnya/ }).click();
+  await expect(page).toHaveURL(new RegExp(bookPath + "$"));
+  await expect(page.getByText("3 halaman logbook")).toBeVisible();
+  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
   await expect(
     page.getByRole("link", { name: /Buka arsip MAILENDER/ }),
   ).toBeVisible();
@@ -261,16 +305,16 @@ test("validation, network errors, keyboard and expired-session handling", async 
     .getByLabel("Pilih foto logbook", { exact: true })
     .setInputFiles(await photo(page, "Draft belum disimpan"));
   await expect(page.getByText("1 halaman siap disimpan")).toBeVisible();
-  await page.getByRole("link", { name: "Semua arsip", exact: true }).click();
+  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("link", { name: "Semua arsip", exact: true }).click();
+  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
   await page
     .getByRole("button", { name: "Tinggalkan halaman", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Arsip logbook", exact: true }),
+    page.getByRole("heading", { name: "MAILENDER 222", exact: true }),
   ).toBeVisible();
   await page.route("**/api/v1/logbooks?**", (route) =>
     route.fulfill({
@@ -311,8 +355,8 @@ test("validation, network errors, keyboard and expired-session handling", async 
 test("machine photo cards load and filter archives on desktop and mobile", async ({
   page,
 }, testInfo) => {
-  await login(page);
-  const gallery = page.getByRole("complementary", { name: "Filter mesin" });
+  await login(page, "operator", false);
+  const gallery = page.getByRole("complementary", { name: "Pilih mesin" });
   for (const name of [
     "MAILENDER 222",
     "MS3",
@@ -332,10 +376,11 @@ test("machine photo cards load and filter archives on desktop and mobile", async
       )
       .toBe(true);
     await card.click();
-    await expect(card).toHaveAttribute("aria-pressed", "true");
+
     await expect(
       page.getByRole("heading", { name, exact: true }),
     ).toBeVisible();
+    await page.getByRole("link", { name: "Pilih mesin lain" }).click();
   }
   await accessible(page);
   for (const width of [320, 390, 768, 1440]) {
@@ -350,8 +395,55 @@ test("machine photo cards load and filter archives on desktop and mobile", async
     path: testInfo.outputPath("machine-gallery.png"),
     fullPage: true,
   });
-  await gallery
-    .getByRole("button", { name: "Semua mesin", exact: true })
-    .click();
   await expect(page).not.toHaveURL(/machine_id=/);
+});
+
+test("machine-first navigation and empty shifts retain machine/date/shift", async ({
+  page,
+}, testInfo) => {
+  const requests = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/v1/logbooks?")) requests.push(r.url());
+  });
+  await login(page, "operator", false);
+  await expect(
+    page.getByRole("link", { name: "Arsip baru", exact: true }),
+  ).toHaveCount(0);
+  expect(requests).toEqual([]);
+  await page.getByRole("button", { name: "RuiYuan", exact: true }).click();
+  await page.getByRole("link", { name: "Arsip baru", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Mesin", exact: true }),
+  ).toHaveValue("6");
+  await expect(
+    page.getByRole("combobox", { name: "Mesin", exact: true }),
+  ).toBeDisabled();
+  await page.goto("/machines/6/shifts/2026-12-31/3");
+  await expect(
+    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Shift berikutnya/ }).click();
+  await expect(page).toHaveURL(/\/machines\/6\/shifts\/2027-01-01\/1$/);
+  await page.getByRole("link", { name: "Tambah logbook", exact: true }).click();
+  await expect(page.getByLabel("Tanggal logbook")).toHaveValue("2027-01-01");
+  await expect(
+    page.getByRole("combobox", { name: "Shift", exact: true }),
+  ).toHaveValue("1");
+  await page.goto("/machines/6/shifts/2027-01-01/1");
+  await page.getByRole("link", { name: /Shift sebelumnya/ }).click();
+  await expect(page).toHaveURL(/\/machines\/6\/shifts\/2026-12-31\/3$/);
+  await expect(
+    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
+  ).toBeVisible();
+  await accessible(page);
+  await noOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("empty-shift.png"),
+    fullPage: true,
+  });
+  expect(
+    requests.every(
+      (url) => new URL(url).searchParams.get("machine_id") === "6",
+    ),
+  ).toBe(true);
 });

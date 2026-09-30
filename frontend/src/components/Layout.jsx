@@ -39,9 +39,8 @@ export default function Layout() {
           </Link>
           <nav aria-label="Navigasi utama" className="desktop-nav">
             <NavLink to="/" end>
-              Arsip logbook
+              Pilih mesin
             </NavLink>
-            <NavLink to="/new">Arsip baru</NavLink>
           </nav>
           <div className="account">
             <div className="account-name">

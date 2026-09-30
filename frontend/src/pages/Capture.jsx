@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useSearchParams,
+  useBlocker,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useBook, useCatalog } from "../hooks";
 import { queryString, request, uploadLogbook } from "../lib/api";
 import {
   formatBytes,
   formatDate,
   limits,
-  today,
+  yesterday,
   validateSelection,
 } from "../lib/format";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
@@ -16,11 +23,12 @@ import MachinePhoto from "../components/MachinePhoto";
 export default function Capture() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const catalog = useCatalog();
   const detail = useBook(id);
-  const [machine, setMachine] = useState("");
-  const [shift, setShift] = useState("");
-  const [date, setDate] = useState(today);
+  const [machine, setMachine] = useState(() => params.get("machine_id") || "");
+  const [shift, setShift] = useState(() => params.get("shift_id") || "");
+  const [date, setDate] = useState(() => params.get("date") || yesterday());
   const [files, setFiles] = useState([]);
   const filesRef = useRef([]);
   const [camera, setCamera] = useState(false);
@@ -230,11 +238,17 @@ export default function Capture() {
   const selectedMachine = id
     ? detail.book?.machine.name
     : catalog.machines.find((item) => String(item.id) === machine)?.name;
+  if (!id && !machine) return <Navigate to="/" replace />;
+  if (!id && !catalog.loading && !catalog.error && !selectedMachine)
+    return <Navigate to="/" replace />;
   return (
     <div className="page capture-page">
-      <Link to={id ? `/logbooks/${id}` : "/"} className="back-link">
+      <Link
+        to={id ? `/logbooks/${id}` : `/?machine_id=${machine}`}
+        className="back-link"
+      >
         <Icon name="back" />
-        {id ? "Kembali ke arsip" : "Semua arsip"}
+        {id ? "Kembali ke arsip" : "Arsip mesin"}
       </Link>
       <div className="page-heading">
         <div>
@@ -283,7 +297,7 @@ export default function Capture() {
                     value={machine}
                     onChange={(event) => setMachine(event.target.value)}
                     required
-                    disabled={busy || uncertain}
+                    disabled
                   >
                     <option value="" disabled>
                       Pilih mesin

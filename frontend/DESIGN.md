@@ -12,8 +12,8 @@ register with a restrained industrial palette. ENERGY 1 / RHYTHM 2 / MOTION 1.
 - Forest green identifies the primary action and selected machine, not decoration.
 - System sans-serif keeps labels legible and avoids external font requests.
 - Dates and page numbers form the repeated register motif; all values come from data.
-- The archive list is primary. Machine filters remain beside it on wide screens and
-  become a select on phones. No invented metrics, charts, or activity feeds.
+- Choose a machine first, then browse its archive list. No cross-machine list,
+  invented metrics, charts, or activity feeds.
 - Native dialogs provide focus containment and Escape handling. Controls have visible
   focus, at least 44px touch targets, and meaningful text labels.
 - Motion is limited to brief hover/focus transitions; reduced motion is respected.
@@ -30,8 +30,21 @@ controls and the ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain in place.
 
 ## Machine photography
 
-User-supplied machine cutouts identify machine filters: MAILENDER, MS3, COATING
+User-supplied machine cutouts identify the initial machine chooser: MAILENDER, MS3, COATING
 (shared by COATING 1–3), and RuiYuan. Contain-fit images preserve the full machine.
-Six columns on wide screens become three on tablets and two on phones; a navy
-caption and check mark identify the selected filter. Capture shows a smaller
-machine preview to help the operator verify the selected equipment.
+Six columns on wide screens become three on tablets and two on phones. Capture
+shows a smaller machine preview; the chosen machine is locked for new archives.
+
+## Archive navigation
+
+Archive lists always belong to one machine. Date and shift filters remain within
+that machine. Previous/next shift links show the destination date and shift and
+advance one slot at a time, including empty shifts. Shift 3 advances to Shift 1
+on the next log date. Empty slots offer a prefilled new archive form. No counter
+entry or comparison calculation is introduced.
+
+Successful uploads offer an explicit “Input mesin lain” action alongside the
+confirmation. The existing photo chooser then opens a new capture form directly,
+carrying only the shift. New forms default to the previous local calendar day;
+an explicitly selected empty shift retains its date. The success action spans
+the width on phones so it is easy to reach without competing with photo controls.
