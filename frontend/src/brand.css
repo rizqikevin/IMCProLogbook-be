@@ -229,3 +229,135 @@
     }
   }
 }
+
+@layer responsive {
+  .archive-workspace {
+    display: block;
+  }
+  .machine-panel {
+    display: block;
+    margin-bottom: 2rem;
+  }
+  .machine-gallery-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .machine-gallery-heading h2 {
+    padding: 0;
+    margin: 0 0 0.25rem;
+    color: var(--ink);
+    font-size: 1rem;
+  }
+  .machine-gallery-heading p {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  .machine-gallery-heading button[aria-pressed="true"] {
+    color: var(--green);
+    text-decoration-thickness: 2px;
+  }
+  .machine-buttons {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .machine-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    background: white;
+    border: 1px solid var(--control);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .machine-photo-surface {
+    width: 100%;
+    background: #f1f3f6;
+    padding: 0.6rem;
+  }
+  .machine-photo {
+    width: 100%;
+    height: 110px;
+    object-fit: contain;
+  }
+  .machine-card-caption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    width: 100%;
+    padding: 0.8rem 0.7rem;
+    font-size: 0.75rem;
+  }
+  .machine-number svg {
+    width: 16px;
+    height: 16px;
+  }
+  .machine-option:hover:not(.selected) {
+    border-color: var(--green);
+  }
+  .machine-option.selected .machine-photo-surface {
+    background: #eeedf8;
+  }
+  .selected-machine-preview {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #f4f5f8;
+    border-radius: 8px;
+  }
+  .selected-machine-preview .machine-photo {
+    width: 140px;
+    height: 85px;
+    flex-shrink: 0;
+  }
+  .selected-machine-preview span {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  .selected-machine-preview strong {
+    display: block;
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+  }
+  @media (max-width: 1100px) {
+    .machine-buttons {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .machine-photo {
+      height: 130px;
+    }
+  }
+  @media (max-width: 580px) {
+    .machine-buttons {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    .machine-photo {
+      height: 95px;
+    }
+    .machine-card-caption {
+      font-size: 0.73rem;
+      padding: 0.7rem;
+      min-height: 44px;
+    }
+    .machine-gallery-heading p {
+      max-width: 180px;
+    }
+    .selected-machine-preview {
+      gap: 0.8rem;
+      padding: 0.7rem;
+    }
+    .selected-machine-preview .machine-photo {
+      width: 100px;
+      height: 70px;
+    }
+  }
+}

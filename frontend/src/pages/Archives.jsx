@@ -4,6 +4,7 @@ import { useCatalog } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate } from "../lib/format";
 import { ErrorNotice, Icon, Loading } from "../components/common";
+import MachinePhoto from "../components/MachinePhoto";
 
 export default function Archives() {
   const catalog = useCatalog();
@@ -127,16 +128,20 @@ export default function Archives() {
       <ErrorNotice error={catalog.error} onRetry={catalog.retry} />
       <div className="archive-workspace">
         <aside className="machine-panel" aria-label="Filter mesin">
-          <h2>Mesin produksi</h2>
-          <div className="machine-buttons">
+          <div className="machine-gallery-heading">
+            <div>
+              <h2>Mesin produksi</h2>
+              <p>Pilih mesin untuk melihat arsipnya.</p>
+            </div>
             <button
-              className={`machine-option ${!machine ? "selected" : ""}`}
+              className="text-button"
               aria-pressed={!machine}
               onClick={() => filter("machine_id", "")}
             >
-              <span>Semua mesin</span>
-              <span aria-hidden="true">/</span>
+              Semua mesin
             </button>
+          </div>
+          <div className="machine-buttons">
             {catalog.machines.map((item, index) => (
               <button
                 key={item.id}
@@ -144,16 +149,22 @@ export default function Archives() {
                 aria-pressed={machine === String(item.id)}
                 onClick={() => filter("machine_id", String(item.id))}
               >
-                <span>{item.name}</span>
-                <span className="machine-number" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")}
+                <span className="machine-photo-surface">
+                  <MachinePhoto name={item.name} decorative />
+                </span>
+                <span className="machine-card-caption">
+                  <span>{item.name}</span>
+                  <span className="machine-number" aria-hidden="true">
+                    {machine === String(item.id) ? (
+                      <Icon name="check" />
+                    ) : (
+                      String(index + 1).padStart(2, "0")
+                    )}
+                  </span>
                 </span>
               </button>
             ))}
           </div>
-          <p className="machine-hint">
-            Pilih mesin untuk mempersempit daftar arsip.
-          </p>
         </aside>
         <section className="archive-content" aria-label="Daftar arsip">
           <div className="filter-bar">

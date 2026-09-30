@@ -11,6 +11,7 @@ import {
 } from "../lib/format";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 import Camera from "../components/Camera";
+import MachinePhoto from "../components/MachinePhoto";
 
 export default function Capture() {
   const { id } = useParams();
@@ -322,6 +323,15 @@ export default function Capture() {
                     ))}
                   </select>
                 </label>
+              </div>
+            )}
+            {selectedMachine && (
+              <div className="selected-machine-preview">
+                <MachinePhoto name={selectedMachine} />
+                <div>
+                  <span>Mesin yang dipilih</span>
+                  <strong>{selectedMachine}</strong>
+                </div>
               </div>
             )}
           </section>

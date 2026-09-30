@@ -307,3 +307,51 @@ test("validation, network errors, keyboard and expired-session handling", async 
     ),
   ).toBeNull();
 });
+
+test("machine photo cards load and filter archives on desktop and mobile", async ({
+  page,
+}, testInfo) => {
+  await login(page);
+  const gallery = page.getByRole("complementary", { name: "Filter mesin" });
+  for (const name of [
+    "MAILENDER 222",
+    "MS3",
+    "COATING 1",
+    "COATING 2",
+    "COATING 3",
+    "RuiYuan",
+  ]) {
+    const card = gallery.getByRole("button", { name, exact: true });
+    await expect(card).toBeVisible();
+    await card.locator("img").scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        card
+          .locator("img")
+          .evaluate((img) => img.complete && img.naturalWidth > 0),
+      )
+      .toBe(true);
+    await card.click();
+    await expect(card).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
+  }
+  await accessible(page);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await noOverflow(page);
+  }
+  await page.setViewportSize({
+    width: testInfo.project.name === "mobile" ? 390 : 1440,
+    height: 1000,
+  });
+  await page.screenshot({
+    path: testInfo.outputPath("machine-gallery.png"),
+    fullPage: true,
+  });
+  await gallery
+    .getByRole("button", { name: "Semua mesin", exact: true })
+    .click();
+  await expect(page).not.toHaveURL(/machine_id=/);
+});
