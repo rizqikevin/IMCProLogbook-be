@@ -94,3 +94,19 @@ diuji. Build Docker berhasil dan container frontend diperbarui.
   foto mesin, dan jarak antarkontrol mengikuti desain aplikasi yang sudah ada.
 - Craftsmanship PASS: navigasi memakai tautan nyata, form berikutnya kosong,
   tidak ada foto atau statistik tambahan; delapan E2E dan build production lulus.
+
+## Penyempurnaan operator · 30 September 2026
+
+Halaman awal tetap hanya pilihan mesin. Foto mesin ditambahkan di atas filter
+arsip, input tanggal menggunakan default H-1, dan ringkasan simpan menampilkan
+mesin, tanggal, serta shift yang benar, termasuk saat menambah halaman.
+
+- Hard Gate PASS: delapan unit dan delapan E2E lulus; setelah penyederhanaan
+  halaman awal, empat E2E pilihan mesin/tanggal desktop-mobile lulus kembali.
+  Pemeriksaan mencakup axe dan overflow. Tombol tanggal cepat kemudian dihapus
+  sesuai permintaan pengguna; field tanggal dan default H-1 tetap dipertahankan.
+- Purpose Gate PASS: alasan penanda mesin dan ringkasan simpan tercatat di DESIGN.md;
+  tidak ada tambahan langkah sebelum memilih mesin.
+- Liveliness PASS: tetap ENERGY 1 / RHYTHM 2 / MOTION 1 dengan navy dan foto asli.
+- Craftsmanship PASS: screenshot form mobile dan pilihan mesin diperiksa,
+  build Docker final berhasil, alur unggah dan peringatan draft tetap teruji.

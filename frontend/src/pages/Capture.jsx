@@ -19,6 +19,7 @@ import {
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 import Camera from "../components/Camera";
 import MachinePhoto from "../components/MachinePhoto";
+import { validDate } from "../lib/shifts";
 
 export default function Capture() {
   const { id } = useParams();
@@ -238,6 +239,8 @@ export default function Capture() {
   const selectedMachine = id
     ? detail.book?.machine.name
     : catalog.machines.find((item) => String(item.id) === machine)?.name;
+  const summaryDate = id ? detail.book?.log_date : date;
+  const summaryShift = id ? detail.book?.shift.id : shift;
   if (!id && !machine) return <Navigate to="/" replace />;
   if (!id && !catalog.loading && !catalog.error && !selectedMachine)
     return <Navigate to="/" replace />;
@@ -309,16 +312,18 @@ export default function Capture() {
                     ))}
                   </select>
                 </label>
-                <label>
-                  Tanggal logbook
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(event) => setDate(event.target.value)}
-                    required
-                    disabled={busy || uncertain}
-                  />
-                </label>
+                <div className="date-field">
+                  <label>
+                    Tanggal logbook
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(event) => setDate(event.target.value)}
+                      required
+                      disabled={busy || uncertain}
+                    />
+                  </label>
+                </div>
                 <label>
                   Shift
                   <select
@@ -534,6 +539,9 @@ export default function Capture() {
               </strong>
               <span>
                 {selectedMachine || "Pilih mesin terlebih dahulu"}
+                {validDate(summaryDate) &&
+                  ` · ${formatDate(summaryDate, { month: "short" })}`}
+                {summaryShift ? ` · Shift ${summaryShift}` : " · Pilih shift"}
                 {files.length > 0 && ` · ${formatBytes(totalBytes)}`}
               </span>
             </div>

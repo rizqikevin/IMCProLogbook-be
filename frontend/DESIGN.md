@@ -48,3 +48,12 @@ confirmation. The existing photo chooser then opens a new capture form directly,
 carrying only the shift. New forms default to the previous local calendar day;
 an explicitly selected empty shift retains its date. The success action spans
 the width on phones so it is easy to reach without competing with photo controls.
+
+## Operator shortcuts
+
+The first screen remains a machine chooser without an extra action choice.
+A machine photo above archive filters reinforces the current scope. The date
+defaults to H-1 with a single editable date field. The save bar repeats
+the actual machine, date, and shift, including when appending to an existing archive.
+These controls reuse the navy palette, 44px targets, and ENERGY 1 / RHYTHM 2 /
+MOTION 1; no new visual assets or dashboard metrics are added.

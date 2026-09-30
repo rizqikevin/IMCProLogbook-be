@@ -208,7 +208,9 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
     return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
   });
   await expect(page.getByLabel("Tanggal logbook")).toHaveValue(previousDay);
-  await expect(page.getByText("Belum ada foto dipilih", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Belum ada foto dipilih", { exact: true }),
+  ).toBeVisible();
   await page.goto(bookPath);
   await page.getByRole("link", { name: "Tambah halaman" }).click();
   await page.getByRole("button", { name: "Buka kamera" }).click();
@@ -410,8 +412,12 @@ test("machine-first navigation and empty shifts retain machine/date/shift", asyn
     page.getByRole("link", { name: "Arsip baru", exact: true }),
   ).toHaveCount(0);
   expect(requests).toEqual([]);
+  await expect(page.getByRole("navigation", { name: "Tujuan logbook" })).toHaveCount(0);
   await page.getByRole("button", { name: "RuiYuan", exact: true }).click();
   await page.getByRole("link", { name: "Arsip baru", exact: true }).click();
+  await expect(page).toHaveURL(/\/new\?machine_id=6/);
+  await accessible(page);
+  await noOverflow(page);
   await expect(
     page.getByRole("combobox", { name: "Mesin", exact: true }),
   ).toHaveValue("6");

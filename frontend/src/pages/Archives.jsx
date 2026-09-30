@@ -187,6 +187,13 @@ export default function Archives() {
             <Link className="back-link" to="/">
               Pilih mesin lain
             </Link>
+            <div className="archive-machine-context">
+              <MachinePhoto name={selectedMachine?.name || ""} decorative />
+              <div>
+                <strong>{selectedMachine?.name}</strong>
+                <span>Gunakan tanggal dan shift untuk menemukan catatan.</span>
+              </div>
+            </div>
             <div className="filter-bar">
               <label>
                 Dari tanggal
