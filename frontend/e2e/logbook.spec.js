@@ -220,6 +220,20 @@ test("operator captures, orders, uploads, reads, appends; admin deletes", async 
   await expect(camera.getByText("1 foto dipilih")).toBeVisible();
   await camera.getByRole("button", { name: "Ambil foto", exact: true }).click();
   await expect(camera.getByText("2 foto dipilih")).toBeVisible();
+  const thumbnails = camera.getByRole("list", {
+    name: "Foto yang sudah dipilih",
+  });
+  await expect(thumbnails.getByRole("img")).toHaveCount(2);
+  for (const thumbnail of await thumbnails.getByRole("img").all()) {
+    await expect
+      .poll(() =>
+        thumbnail.evaluate((img) => img.complete && img.naturalWidth > 0),
+      )
+      .toBe(true);
+  }
+  await accessible(page);
+  await noOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("camera-thumbnails.png") });
   expect(uploads).toBe(1);
   await page.evaluate(() => {
     window.testCameraTrack = document

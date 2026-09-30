@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, ErrorNotice, Icon, Loading } from "./common";
 
-export default function Camera({ onClose, onCapture, count, maximum }) {
+export default function Camera({ onClose, onCapture, photos, maximum }) {
+  const count = photos.length;
   const video = useRef(null);
+  const thumbnails = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [facing, setFacing] = useState("environment");
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (thumbnails.current) {
+      thumbnails.current.scrollLeft = thumbnails.current.scrollWidth;
+    }
+  }, [count]);
   useEffect(() => {
     let disposed = false;
     let stream;
@@ -108,6 +115,21 @@ export default function Camera({ onClose, onCapture, count, maximum }) {
         <span>{count} foto dipilih</span>
         <span>Belum diunggah</span>
       </div>
+      {count > 0 && (
+        <ol
+          className="camera-thumbnails"
+          aria-label="Foto yang sudah dipilih"
+          ref={thumbnails}
+          tabIndex={0}
+        >
+          {photos.map((photo, index) => (
+            <li key={photo.id}>
+              <img src={photo.url} alt={`Foto pilihan ${index + 1}`} />
+              <span>Foto {index + 1}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="camera-controls">
         <button
           className="button button-outline"

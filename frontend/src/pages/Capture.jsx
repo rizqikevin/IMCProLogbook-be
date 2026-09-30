@@ -572,7 +572,7 @@ export default function Capture() {
         <Camera
           onClose={() => setCamera(false)}
           onCapture={addFiles}
-          count={files.length}
+          photos={files}
           maximum={maximum}
         />
       )}

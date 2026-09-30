@@ -122,3 +122,13 @@ mesin, tanggal, serta shift yang benar, termasuk saat menambah halaman.
   mesin, dan logo asli dipertahankan tanpa langkah atau pilihan baru.
 - Craftsmanship PASS: screenshot login dan form mobile serta pilihan mesin
   desktop diperiksa. Build production Docker berhasil, container sehat.
+
+## Thumbnail kamera · 30 September 2026
+
+- Hard Gate PASS: dua E2E alur unggah desktop/mobile lulus, termasuk dua foto
+  kamera dengan thumbnail yang selesai dimuat, axe, dan overflow.
+- Purpose Gate PASS: thumbnail bernomor di bawah kamera membantu memeriksa foto
+  yang sudah dipilih; deret dapat digeser dan mengikuti foto terbaru.
+- Liveliness PASS: foto pengguna dan gaya navy yang ada dipakai tanpa animasi baru.
+- Craftsmanship PASS: screenshot kamera mobile diperiksa; build Docker berhasil.
+  Preview memakai blob URL milik form, tanpa unggahan sebelum Simpan logbook.

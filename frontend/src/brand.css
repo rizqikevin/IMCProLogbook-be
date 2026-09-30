@@ -14,6 +14,34 @@
   }
 }
 @layer components {
+  .camera-thumbnails {
+    display: flex;
+    gap: 0.65rem;
+    overflow-x: auto;
+    list-style: none;
+    padding: 0.25rem 0 0.75rem;
+    margin: 0 0 0.75rem;
+  }
+  .camera-thumbnails li {
+    flex: 0 0 80px;
+    overflow: hidden;
+    border: 1px solid var(--control);
+    border-radius: 6px;
+    background: white;
+  }
+  .camera-thumbnails img {
+    display: block;
+    width: 100%;
+    height: 80px;
+    object-fit: contain;
+    background: var(--paper);
+  }
+  .camera-thumbnails span {
+    display: block;
+    padding: 0.3rem;
+    font-size: 0.75rem;
+    text-align: center;
+  }
   .change-machine-button {
     margin-bottom: 1rem;
   }
