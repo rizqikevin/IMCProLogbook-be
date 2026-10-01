@@ -1,5 +1,6 @@
 const photos = {
   "MAILENDER 222": "mailender",
+  "MAILENDER 121": "mailender",
   MS3: "ms3",
   "COATING 1": "coating",
   "COATING 2": "coating",

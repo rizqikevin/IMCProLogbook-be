@@ -376,6 +376,7 @@ test("machine photo cards load and filter archives on desktop and mobile", async
     "COATING 2",
     "COATING 3",
     "RuiYuan",
+    "MAILENDER 121",
   ]) {
     const card = gallery.getByRole("button", { name, exact: true });
     await expect(card).toBeVisible();
