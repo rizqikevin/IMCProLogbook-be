@@ -16,49 +16,90 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
     }
   }, [count]);
   useEffect(() => {
-    let disposed = false;
+    let active = true;
     let stream;
+    let timeout;
+    let playbackStarted = false;
+    const preview = video.current;
+
+    function release() {
+      clearTimeout(timeout);
+      preview.removeEventListener("loadeddata", updateReady);
+      preview.removeEventListener("canplay", updateReady);
+      preview.removeEventListener("playing", updateReady);
+      preview.removeEventListener("error", playbackFailed);
+      if (stream && preview.srcObject === stream) {
+        preview.pause();
+        preview.srcObject = null;
+      }
+      stream?.getTracks().forEach((track) => track.stop());
+    }
+
+    function fail(err) {
+      if (!active) return;
+      active = false;
+      release();
+      setReady(false);
+      setError(
+        err.name === "NotAllowedError"
+          ? "Izin kamera ditolak. Izinkan akses kamera di pengaturan peramban."
+          : err.message || "Gagal membuka kamera.",
+      );
+    }
+
+    function updateReady() {
+      if (
+        active && playbackStarted &&
+        preview.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+        preview.videoWidth > 0 && preview.videoHeight > 0
+      ) {
+        clearTimeout(timeout);
+        setReady(true);
+      }
+    }
+
+    function playbackFailed() {
+      fail(new Error("Pratinjau kamera gagal diputar. Silakan coba lagi."));
+    }
+
     setReady(false);
     setError(null);
     async function start() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        fail(new Error("Perangkat tidak memiliki kamera atau akses ditolak."));
+        return;
+      }
+      timeout = setTimeout(
+        () => fail(new Error("Akses kamera tidak merespons.")),
+        10000,
+      );
       try {
-        if (!navigator.mediaDevices?.getUserMedia)
-          throw new Error(
-            "Kamera langsung memerlukan HTTPS atau localhost. Anda tetap dapat memilih foto dari perangkat.",
-          );
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: facing },
-            width: { ideal: 2560 },
-            height: { ideal: 1920 },
-          },
+        const acquired = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
           audio: false,
         });
-        if (disposed) {
-          stream.getTracks().forEach((track) => track.stop());
+        // Permission may resolve after timeout, camera switch, or dialog close.
+        if (!active) {
+          acquired.getTracks().forEach((track) => track.stop());
           return;
         }
-        video.current.srcObject = stream;
-        await video.current.play();
-        if (!disposed) setReady(true);
-      } catch (error) {
-        if (disposed) return;
-        const messages = {
-          NotAllowedError:
-            "Izin kamera belum diberikan. Izinkan kamera di pengaturan browser, atau pilih foto dari perangkat.",
-          NotFoundError: "Kamera tidak ditemukan. Pilih foto dari perangkat.",
-          NotReadableError:
-            "Kamera sedang digunakan aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.",
-        };
-        setError(
-          messages[error.name] || error.message || "Kamera belum dapat dibuka.",
-        );
+        stream = acquired;
+        preview.addEventListener("loadeddata", updateReady);
+        preview.addEventListener("canplay", updateReady);
+        preview.addEventListener("playing", updateReady);
+        preview.addEventListener("error", playbackFailed);
+        preview.srcObject = stream;
+        await preview.play();
+        playbackStarted = true;
+        updateReady();
+      } catch (err) {
+        fail(err);
       }
     }
     start();
     return () => {
-      disposed = true;
-      stream?.getTracks().forEach((track) => track.stop());
+      active = false;
+      release();
     };
   }, [facing, attempt]);
 
@@ -123,7 +164,7 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
           tabIndex={0}
         >
           {photos.map((photo, index) => (
-            <li key={photo.id}>
+            <li key={photo.url}>
               <img src={photo.url} alt={`Foto pilihan ${index + 1}`} />
               <span>Foto {index + 1}</span>
             </li>
@@ -132,6 +173,7 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
       )}
       <div className="camera-controls">
         <button
+          type="button"
           className="button button-outline"
           onClick={() =>
             setFacing((value) =>
@@ -143,6 +185,7 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
           Ganti kamera
         </button>
         <button
+          type="button"
           className="button button-primary"
           onClick={capture}
           disabled={!ready || busy || count >= maximum}
@@ -155,6 +198,7 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
               : "Ambil foto"}
         </button>
         <button
+          type="button"
           className="button button-outline"
           onClick={onClose}
           disabled={busy}

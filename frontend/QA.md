@@ -1,5 +1,75 @@
 # Verifikasi frontend
 
+## Pencarian teks per mesin · 11 Oktober 2026
+
+- Backend integration PostgreSQL dengan race detector dan `go vet ./...` lulus.
+- Suite browser desktop/Pixel 7: 16 pengujian lulus, termasuk pencarian seluruh
+  riwayat, pagination hasil, isolasi mesin, karakter literal `%`/`_`, perbedaan
+  huruf besar/kecil, reset, reload, Back/Forward, hasil kosong, dan retry.
+- Pengiriman saat pencarian aktif tidak menyisipkan pesan yang tidak cocok;
+  draft dan foto tetap ada saat query berubah. Respons usang tidak mengganti hasil.
+- Smoke browser nyata: `BEARING` menemukan `Pelumasan bearing selesai`.
+  Pada viewport 390 × 844, ukuran dokumen tetap 390 × 844; screenshot diambil.
+- Hard gate PASS: axe dan overflow pada pencarian tercakup E2E; kontrol pencarian,
+  reset, Escape, state loading/error/kosong berjalan.
+- Purpose gate PASS: pencarian di header membatasi konteks pada mesin aktif;
+  composer tetap tersedia dan query tersimpan pada URL.
+- Liveliness PASS: arah navy dan ENERGY 1 / RHYTHM 2 / MOTION 1 tetap dipakai.
+- Craftsmanship PASS: pencarian memakai API dan PostgreSQL nyata, bukan filter
+  halaman yang sudah dimuat. Dokumen API dan petunjuk pengguna diperbarui.
+- Batas: belum diuji pada perangkat fisik; screenshot tidak dinilai secara visual.
+
+## Layout aplikasi chat · 11 Oktober 2026
+
+- `npm test`: 13 pengujian lulus; `npm run build`: lulus.
+- Playwright dengan backend Go dan PostgreSQL terisolasi: 12 pengujian lulus
+  pada desktop dan Pixel 7. Kamera menangkap frame video uji, mengirim foto,
+  lalu foto yang tersimpan dibaca kembali setelah reload.
+- Header mesin dan composer tetap dalam viewport saat riwayat panjang digulir.
+  Browser langsung pada 390 × 844 menunjukkan ukuran dokumen 390 × 844;
+  composer berakhir tepat pada koordinat bawah 844. Pesan multiline tetap ada
+  setelah reload. Bubble milik sendiri menampilkan Anda dan pemisah tanggal.
+- Hard gate PASS: pengiriman teks/foto/kamera, galeri, hapus lampiran, dialog foto,
+  Escape, state kosong/loading/error, retry, draft antarmesin, axe dan overflow
+  tercakup suite yang lulus.
+- Purpose gate PASS: header ringkas menjaga konteks mesin, bubble membedakan
+  pengirim, dan composer bawah menjaga tindakan kirim tersedia; arah di DESIGN.md.
+- Liveliness PASS: ENERGY 1 / RHYTHM 2 / MOTION 1, identitas navy IMCPro,
+  foto mesin yang sudah ada, tanpa status online atau tanda baca fiktif.
+- Craftsmanship PASS: interaksi memakai backend nyata; sesi pengujian digunakan
+  ulang per worker tanpa melemahkan pembatasan login production.
+- Batas: keyboard dan kamera perangkat fisik belum diuji. Screenshot browser
+  langsung mengalami timeout; bukti layout memakai geometri DOM dan E2E.
+
+## Chat per mesin · 11 Oktober 2026
+
+- Backend: `make test`, `make lint`, dan `make test-integration` dengan PostgreSQL
+  terisolasi lulus. Regresi normalisasi CRLF ke LF lulus lewat
+  `go test -race ./internal/service` setelah perubahan terakhir.
+- Frontend: 13 unit test, build production, dan 8 E2E desktop/Pixel 7 lulus.
+- Browser nyata: login, pilih mesin, kirim teks multiline, muat ulang, dan baca
+  pesan tersimpan berhasil. Pada lebar 390 piksel, scrollWidth 390, tinggi header
+  percakapan 77 piksel, tombol kirim 46 piksel, dan fokus textarea terlihat.
+- E2E: teks, foto, teks dengan foto, hapus lampiran sebelum kirim, perbesar foto,
+  tutup dialog dengan Escape, baca arsip foto lama, draft saat koneksi gagal,
+  draft terpisah per mesin, pagination, retry, serta pindah mesin saat mengirim lulus.
+- Hard gate PASS: axe WCAG A/AA dan pemeriksaan overflow lulus, termasuk lebar
+  320, 768, dan 1024 piksel. State kosong/loading/error tercakup E2E.
+- Purpose gate PASS: gaya navy dan foto mesin mengikuti `DESIGN.md`; foto header
+  kecil membedakan konteks mesin tanpa menggeser percakapan.
+- Liveliness PASS: ENERGY 1 / RHYTHM 2 / MOTION 1 dipertahankan; hierarki mesin,
+  riwayat, dan composer memakai gaya aplikasi yang sudah ada.
+- Craftsmanship PASS: alur utama memakai backend Go dan PostgreSQL nyata;
+  kegagalan jaringan disimulasikan hanya dalam pengujian.
+
+Screenshot browser diambil untuk bukti layout. Pemeriksaan visual berbasis gambar
+tidak dinilai pada sesi ini; ukuran DOM, overflow, fokus, axe, dan interaksi diuji.
+Belum diverifikasi pada perangkat fisik atau deployment production.
+Draft hanya tersimpan selama tab aktif; reload, tutup tab, atau logout menghapusnya.
+Baris CRLF dinormalisasi menjadi LF; spasi dan baris kosong tetap disimpan.
+
+## Riwayat verifikasi sebelumnya
+
 Pengujian terakhir: 23 September 2026.
 
 Pembaruan container tanpa Nginx: server Go diperiksa dengan `go test -race`

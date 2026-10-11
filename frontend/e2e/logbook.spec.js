@@ -1,468 +1,431 @@
-import { test, expect } from "@playwright/test";
+import { test as base, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { createHash } from "node:crypto";
 
-async function login(page, username = "operator", choose = true) {
-  await page.goto("/");
-  await page.getByLabel("Nama pengguna", { exact: true }).fill(username);
-  await page
-    .getByLabel("Kata sandi", { exact: true })
-    .fill("frontend-test-only-123");
-  const responsePromise = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/auth/login") &&
-      response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "Masuk" }).click();
-  const response = await responsePromise;
-  if (response.status() === 429) {
-    test.setTimeout(120_000);
-    const retrySeconds = Number(response.headers()["retry-after"] || 60);
-    await new Promise((resolve) => setTimeout(resolve, retrySeconds * 1000));
-    await page.getByRole("button", { name: "Masuk" }).click();
-  }
-  await expect(
-    page.getByRole("heading", { name: "Pilih mesin", exact: true }),
-  ).toBeVisible();
-  if (choose)
-    await page
-      .getByRole("button", { name: "MAILENDER 222", exact: true })
-      .click();
-}
-
-async function noOverflow(page) {
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-}
-
-async function accessible(page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(results.violations).toEqual([]);
-}
-
-async function photo(page, label) {
-  const data = await page.evaluate((text) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 600;
-    canvas.height = 800;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, 600, 800);
-    ctx.fillStyle = "#222";
-    ctx.font = "24px sans-serif";
-    ctx.fillText("FOTO PENGUJIAN", 40, 65);
-    ctx.fillText(text, 40, 110);
-    ctx.strokeStyle = "#999";
-    for (let y = 160; y < 760; y += 55) {
-      ctx.beginPath();
-      ctx.moveTo(40, y);
-      ctx.lineTo(560, y);
-      ctx.stroke();
+const test = base.extend({
+  operatorSession: [async ({ browser }, use, workerInfo) => {
+    const context = await browser.newContext({ baseURL: workerInfo.project.use.baseURL });
+    try {
+      const page = await context.newPage();
+      await page.goto("/");
+      await page.getByLabel("Nama pengguna", { exact: true }).fill("operator");
+      await page.getByLabel("Kata sandi", { exact: true }).fill("frontend-test-only-123");
+      await page.getByRole("button", { name: "Masuk", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Pilih mesin", exact: true })).toBeVisible();
+      const session = await page.evaluate(() => sessionStorage.getItem("machine-logbook-session"));
+      expect(JSON.parse(session).access_token).toBeTruthy();
+      await use({ session, origin: new URL(page.url()).origin });
+    } finally {
+      await context.close();
     }
+  }, { scope: "worker" }],
+  page: async ({ page, operatorSession }, use) => {
+    // sessionStorage is not part of Playwright storageState; seed each isolated tab.
+    await page.addInitScript(({ session, origin }) => {
+      if (location.origin === origin && !sessionStorage.getItem("machine-logbook-session")) {
+        sessionStorage.setItem("machine-logbook-session", session);
+      }
+    }, operatorSession);
+    await use(page);
+  },
+});
+
+async function login(page) {
+  await page.goto("/");
+  // Login UI runs once per worker; each test still owns a fresh browser context.
+  await expect(page.getByRole("heading", { name: "Pilih mesin", exact: true })).toBeVisible();
+}
+async function choose(page, name = "MAILENDER 222") {
+  await page.getByRole("link", { name, exact: true }).click();
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page.getByLabel(`Pesan untuk ${name}`)).toBeVisible();
+}
+async function accessible(page) {
+  expect((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+}
+async function photo(page) {
+  const data = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 80; canvas.height = 80;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "white"; context.fillRect(0, 0, 80, 80);
+    context.fillStyle = "black"; context.fillText("TEST", 10, 30);
     return canvas.toDataURL("image/png").split(",")[1];
-  }, label);
-  return {
-    name: `${label}.png`,
-    mimeType: "image/png",
-    buffer: Buffer.from(data, "base64"),
-  };
+  });
+  return { name: "test.png", mimeType: "image/png", buffer: Buffer.from(data, "base64") };
+}
+async function token(page) {
+  return page.evaluate(() => JSON.parse(sessionStorage.getItem("machine-logbook-session")).access_token);
+}
+async function send(page) {
+  const response = page.waitForResponse((r) => /\/machines\/\d+\/messages$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
+  const result = await response;
+  expect(result.status()).toBe(201);
+  await expect(page.getByRole("status").filter({ hasText: "Pesan terkirim." })).toBeVisible();
+  return result.json();
 }
 
-test("operator captures, orders, uploads, reads, appends; admin deletes", async ({
-  page,
-}, testInfo) => {
-  const jsErrors = [];
-  page.on("pageerror", (error) => jsErrors.push(error.message));
-  await page.goto("/login");
-  await accessible(page);
-  await noOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("login.png"),
-    fullPage: true,
-  });
-  await page.getByLabel("Nama pengguna", { exact: true }).fill("operator");
-  await page.getByLabel("Kata sandi", { exact: true }).fill("wrong-password");
-  await page.getByRole("button", { name: "Masuk" }).click();
-  await expect(page.getByRole("alert")).toContainText(
-    "Nama pengguna atau kata sandi salah",
-  );
+test("machine conversation persists exact text, photos, both, and historical archives", async ({ page }, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   await login(page);
-  await expect(
-    page.getByText("Halaman pertama dimulai di sini."),
-  ).toBeVisible();
   await accessible(page);
-  await page.getByRole("link", { name: "Buat arsip pertama" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Tambah logbook", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("1");
-  await page
-    .getByLabel("Tanggal logbook")
-    .fill(testInfo.project.name === "desktop" ? "2026-09-23" : "2026-09-24");
-  await page
-    .getByRole("combobox", { name: "Shift", exact: true })
-    .selectOption("2");
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("1");
-  const first = await photo(page, "Halaman A");
-  const second = await photo(page, "Halaman B");
-  let uploads = 0;
-  page.on("request", (req) => {
-    if (req.method() === "POST" && req.url().includes("/api/v1/logbooks"))
-      uploads += 1;
-  });
-  await page
-    .getByLabel("Pilih foto logbook", { exact: true })
-    .setInputFiles([first, second]);
-  await expect(page.getByText("2 halaman siap disimpan")).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("1");
-  expect(uploads).toBe(0);
-  await page
-    .getByRole("button", { name: "Pindahkan foto 2 lebih awal" })
-    .click();
-  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "Tinggalkan foto pilihan?",
-  );
-  await page.getByRole("button", { name: "Lanjutkan mengarsipkan" }).click();
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("1");
+  await choose(page);
+  await expect(page.getByLabel("Tanggal logbook")).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Shift", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Kirim pesan", exact: true })).toBeDisabled();
+  const body = `  ${testInfo.project.name} ${Date.now()}\n\n<script>window.bad = true</script>\takhir  `;
+  const input = page.getByLabel("Pesan untuk MAILENDER 222");
+  await input.fill(body);
+  const text = await send(page);
+  expect(text.text).toBe(body);
+  expect(text.photos).toEqual([]);
+  expect(text.author.name).toBe("Pengujian operator");
+  await expect(page.locator(".message-text").filter({ hasText: testInfo.project.name }).last()).toHaveJSProperty("textContent", body);
+  await expect(page.locator(".message-entry.message-own").filter({ hasText: testInfo.project.name }).last()).toBeVisible();
+  expect(await page.evaluate(() => window.bad)).toBeUndefined();
+  await expect(input).toHaveValue("");
+  const image = await photo(page);
+  await expect(page.getByRole("button", { name: "Ambil foto dari kamera" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tambah foto dari galeri", exact: true })).toBeVisible();
+  await page.locator("#message-photos").setInputFiles(image);
+  const photosOnly = await send(page);
+  expect(photosOnly.text).toBe("");
+  expect(photosOnly.photos[0].sha256).toBe(createHash("sha256").update(image.buffer).digest("hex"));
+  await input.fill("Catatan dengan foto");
+  await page.locator("#message-photos").setInputFiles([image, image]);
+  await page.getByRole("button", { name: "Hapus foto 2", exact: true }).click();
+  const both = await send(page);
+  expect(both.text).toBe("Catatan dengan foto");
+  expect(both.photos).toHaveLength(1);
+  await page.reload();
+  await expect(page.locator(".message-text").filter({ hasText: testInfo.project.name }).last()).toHaveJSProperty("textContent", body);
+  const open = page.getByRole("button", { name: "Perbesar foto 1", exact: true }).last();
+  await open.click();
+  await expect(page.getByRole("dialog").getByRole("img")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await accessible(page);
-  await noOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("capture.png"),
-    fullPage: true,
-  });
-  const originalViewport = page.viewportSize();
+  const viewport = page.viewportSize();
   for (const width of [320, 768, 1024]) {
     await page.setViewportSize({ width, height: 900 });
-    await noOverflow(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
-  await page.setViewportSize(originalViewport);
-  await page.getByRole("button", { name: "Simpan logbook" }).click();
-  await expect(
-    page.getByRole("heading", { name: "MAILENDER 222", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Logbook tersimpan");
-  expect(uploads).toBe(1);
-  const bookPath = new URL(page.url()).pathname;
-  const book = await page.evaluate(async (path) => {
-    const { access_token } = JSON.parse(
-      sessionStorage.getItem("machine-logbook-session"),
-    );
-    return fetch(`/api/v1${path}`, {
-      headers: { Authorization: `Bearer ${access_token}` },
-    }).then((r) => r.json());
-  }, bookPath);
-  expect(book.photos[0].sha256).toBe(
-    createHash("sha256").update(second.buffer).digest("hex"),
-  );
-  await expect(page.getByRole("img", { name: /halaman 1/ })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Hapus arsip", exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "Berikutnya", exact: true }).click();
-  await expect(page.getByRole("img", { name: /halaman 2/ })).toBeVisible();
-  await page.getByRole("button", { name: "Perbesar", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await accessible(page);
-  await noOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("detail.png"),
-    fullPage: true,
+  await page.setViewportSize(viewport);
+  await page.screenshot({ path: testInfo.outputPath("conversation.png"), fullPage: true });
+
+  const legacyResponse = await page.request.post("/api/v1/logbooks", {
+    headers: { Authorization: `Bearer ${await token(page)}` },
+    multipart: { machine_id: "1", log_date: testInfo.project.name === "desktop" ? "2025-01-02" : "2025-01-03", shift_id: "1", photos: image },
   });
-  await page
-    .getByRole("link", { name: "Lanjut mesin lain", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Pilih mesin", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "MS3", exact: true }).click();
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("2");
-  await expect(
-    page.getByRole("combobox", { name: "Shift", exact: true }),
-  ).toHaveValue("2");
-  const previousDay = await page.evaluate(() => {
-    const day = new Date();
-    day.setDate(day.getDate() - 1);
-    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
-  });
-  await expect(page.getByLabel("Tanggal logbook")).toHaveValue(previousDay);
-  await expect(
-    page.getByText("Belum ada foto dipilih", { exact: true }),
-  ).toBeVisible();
-  await page.goto(bookPath);
-  await page.getByRole("link", { name: "Tambah halaman" }).click();
-  await page.getByRole("button", { name: "Buka kamera" }).click();
-  const camera = page.getByRole("dialog");
-  await expect(
-    camera.getByRole("button", { name: "Ambil foto", exact: true }),
-  ).toBeEnabled();
-  await camera.getByRole("button", { name: "Ambil foto", exact: true }).click();
-  await expect(camera.getByText("1 foto dipilih")).toBeVisible();
-  await camera.getByRole("button", { name: "Ambil foto", exact: true }).click();
-  await expect(camera.getByText("2 foto dipilih")).toBeVisible();
-  const thumbnails = camera.getByRole("list", {
-    name: "Foto yang sudah dipilih",
-  });
-  await expect(thumbnails.getByRole("img")).toHaveCount(2);
-  for (const thumbnail of await thumbnails.getByRole("img").all()) {
-    await expect
-      .poll(() =>
-        thumbnail.evaluate((img) => img.complete && img.naturalWidth > 0),
-      )
-      .toBe(true);
-  }
-  await accessible(page);
-  await noOverflow(page);
-  await page.screenshot({ path: testInfo.outputPath("camera-thumbnails.png") });
-  expect(uploads).toBe(1);
-  await page.evaluate(() => {
-    window.testCameraTrack = document
-      .querySelector("video")
-      .srcObject.getTracks()[0];
-  });
-  await camera.getByRole("button", { name: "Selesai memotret" }).click();
-  expect(await page.evaluate(() => window.testCameraTrack.readyState)).toBe(
-    "ended",
-  );
-  await page.getByRole("button", { name: "Hapus foto 2", exact: true }).click();
-  await page.route(
-    "**/api/v1/logbooks/*/photos",
-    async (route) => {
-      await route.fetch();
-      await route.abort("failed");
-    },
-    { times: 1 },
-  );
-  await page.getByRole("button", { name: "Simpan logbook" }).click();
-  await expect(
-    page.getByText("Periksa arsip sebelum mengunggah ulang", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Simpan logbook" }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Periksa hasil unggahan" }).click();
-  await expect(page.getByText("3 halaman logbook")).toBeVisible();
-  expect(uploads).toBe(2);
+  expect(legacyResponse.status()).toBe(201);
+  const legacy = await legacyResponse.json();
   await page.reload();
-  await expect(page.getByText("3 halaman logbook")).toBeVisible();
-  await page.getByRole("link", { name: /Shift berikutnya/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: /Shift sebelumnya/ }).click();
-  await expect(page).toHaveURL(new RegExp(bookPath + "$"));
-  await expect(page.getByText("3 halaman logbook")).toBeVisible();
-  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
-  await expect(
-    page.getByRole("link", { name: /Buka arsip MAILENDER/ }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("archives.png"),
-    fullPage: true,
-  });
-  await page.getByLabel("Dari tanggal").fill("2026-01-01");
-  await page.getByLabel("Sampai tanggal").fill("2026-01-31");
-  await expect(page.getByText("Belum ada arsip yang cocok.")).toBeVisible();
-  await page.getByRole("button", { name: "Hapus filter", exact: true }).click();
-  await expect(
-    page.getByRole("link", { name: /Buka arsip MAILENDER/ }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Keluar dari akun" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Masuk ke logbook" }),
-  ).toBeVisible();
-  await login(page, "admin");
-  await page.goto(bookPath);
-  await page.getByRole("button", { name: "Hapus arsip", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Hapus arsip", exact: true })
-    .click();
-  await expect(
-    page.getByText("Halaman pertama dimulai di sini."),
-  ).toBeVisible();
-  expect(jsErrors).toEqual([]);
+  const legacyEntry = page.locator(".message-entry").filter({ has: page.getByRole("link", { name: "Buka arsip lama" }) }).last();
+  await expect(legacyEntry.locator(".message-text")).toHaveCount(0);
+  await legacyEntry.getByRole("link", { name: "Buka arsip lama" }).click();
+  await expect(page).toHaveURL(new RegExp(`/logbooks/${legacy.id}$`));
+  await expect(page.getByRole("img", { name: /Logbook .*halaman 1/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Tambah halaman", exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Catatan mesin", exact: true }).click();
+  await expect(page).toHaveURL(/\/machines\/1$/);
+  expect(errors).toEqual([]);
 });
 
-test("validation, network errors, keyboard and expired-session handling", async ({
-  page,
-}) => {
+test("failed submission retains machine-scoped text and attachments", async ({ page }) => {
+  await login(page); await choose(page);
+  const text = "Draft\n  masih ada";
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill(text);
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  await page.route("**/api/v1/machines/1/messages", (route) => route.request().method() === "POST" ? route.abort("failed") : route.continue());
+  await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Koneksi terputus");
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue(text);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1" })).toBeVisible();
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page, "MS3");
+  await expect(page.getByLabel("Pesan untuk MS3")).toHaveValue("");
+  await page.getByLabel("Pesan untuk MS3").fill("Draft mesin kedua");
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page);
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue(text);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1" })).toBeVisible();
+  await page.unroute("**/api/v1/machines/1/messages");
+  await send(page);
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue("");
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1" })).toHaveCount(0);
+});
+
+test("loading, empty, failure retry and older pagination preserve ascending order", async ({ page }) => {
   await login(page);
-  await page.getByRole("link", { name: "Buat arsip pertama" }).click();
-  await page.getByLabel("Pilih foto logbook", { exact: true }).setInputFiles({
-    name: "bad.png",
-    mimeType: "image/png",
-    buffer: Buffer.from("not an image"),
+  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "test-author", name: "Pengujian operator" }, created_at: `2026-01-0${id}T00:00:00Z`, photos: [] });
+  let fail = true;
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.route("**/api/v1/machines/1/messages?*", async (route) => {
+    await pending;
+    if (fail) return route.fulfill({ status: 500, json: { error: { code: "internal_error" } } });
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    return route.fulfill({ json: cursor ? { items: [message("1", "Pertama"), message("2", "Kedua")] } : { items: [message("2", "Kedua"), message("3", "Ketiga")], next_cursor: "opaque+/=" } });
   });
-  await expect(page.getByRole("alert")).toContainText("tidak dapat dibaca");
-  await page
-    .getByLabel("Pilih foto logbook", { exact: true })
-    .setInputFiles(await photo(page, "Draft belum disimpan"));
-  await expect(page.getByText("1 halaman siap disimpan")).toBeVisible();
-  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("link", { name: "Arsip mesin", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Tinggalkan halaman", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "MAILENDER 222", exact: true }),
-  ).toBeVisible();
-  await page.route("**/api/v1/logbooks?**", (route) =>
-    route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({ error: { code: "internal_error" } }),
-    }),
-  );
-  await page.reload();
-  await expect(page.getByRole("alert")).toContainText("Server belum dapat");
-  await page.unroute("**/api/v1/logbooks?**");
+  await choose(page);
+  await expect(page.getByRole("status").filter({ hasText: "Memuat pesan" })).toBeVisible();
+  release();
+  await expect(page.getByRole("alert")).toBeVisible();
+  fail = false;
   await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
-  await expect(
-    page.getByText("Halaman pertama dimulai di sini."),
-  ).toBeVisible();
-  await page.keyboard.press("Tab");
-  expect(
-    await page.evaluate(() => document.activeElement !== document.body),
-  ).toBe(true);
-  await page.route("**/api/v1/auth/me", (route) =>
-    route.fulfill({
-      status: 401,
-      contentType: "application/json",
-      body: JSON.stringify({ error: { code: "unauthorized" } }),
-    }),
-  );
+  await expect(page.locator(".message-text")).toHaveText(["Kedua", "Ketiga"]);
+  await page.getByRole("button", { name: "Muat pesan sebelumnya", exact: true }).click();
+  await expect(page.locator(".message-text")).toHaveText(["Pertama", "Kedua", "Ketiga"]);
+  await expect(page.locator(".message-date")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Muat pesan sebelumnya", exact: true })).toHaveCount(0);
+  await page.route("**/api/v1/machines/2/messages?*", (route) => route.fulfill({ json: { items: [] } }));
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page, "MS3");
+  await expect(page.getByRole("heading", { name: "Belum ada pesan" })).toBeVisible();
+  await page.getByLabel("Pesan untuk MS3").fill(" \n\t");
+  await expect(page.getByRole("button", { name: "Kirim pesan", exact: true })).toBeDisabled();
+  await accessible(page);
+});
+
+test("submission stays with its machine during navigation and prevents double send", async ({ page }) => {
+  await login(page); await choose(page);
+  let release;
+  let posts = 0;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.route("**/api/v1/machines/1/messages", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    posts += 1;
+    await pending;
+    return route.continue();
+  });
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill("Pengiriman saat berpindah mesin");
+  const response = page.waitForResponse((r) => r.url().endsWith("/machines/1/messages") && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Mengirim pesan", exact: true })).toBeDisabled();
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toBeDisabled();
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page, "MS3");
+  release();
+  expect((await response).status()).toBe(201);
+  await expect(page.getByLabel("Pesan untuk MS3")).toHaveValue("");
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page);
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue("");
+  await expect(page.locator(".message-text").filter({ hasText: "Pengiriman saat berpindah mesin" }).last()).toBeVisible();
+  expect(posts).toBe(1);
+});
+
+test("camera captures a real video frame and sends a rendered outgoing photo", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      configurable: true,
+      value: async () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 240;
+        const context = canvas.getContext("2d");
+        const paint = () => {
+          context.fillStyle = "white";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.fillStyle = "black";
+          context.font = "24px sans-serif";
+          context.fillText("CAMERA TEST", 30, 120);
+        };
+        paint();
+        const stream = canvas.captureStream(10);
+        const timer = setInterval(paint, 100);
+        const track = stream.getVideoTracks()[0];
+        const stop = track.stop.bind(track);
+        track.stop = () => { clearInterval(timer); stop(); };
+        return stream;
+      },
+    });
+  });
+  await login(page);
+  await choose(page);
+  await page.getByRole("button", { name: "Ambil foto dari kamera", exact: true }).click();
+  const camera = page.getByRole("dialog", { name: "Foto halaman logbook" });
+  await expect(camera.locator("video")).toHaveJSProperty("videoWidth", 320);
+  await camera.getByRole("button", { name: "Ambil foto", exact: true }).click();
+  await expect(camera).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toBeVisible();
+  const message = await send(page);
+  expect(message.text).toBe("");
+  expect(message.photos).toHaveLength(1);
+  const outgoing = page.locator(".message-entry.message-own").last();
+  const image = outgoing.getByRole("button", { name: "Perbesar foto 1", exact: true }).getByRole("img");
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Masuk" })).toBeVisible();
-  expect(
-    await page.evaluate(() =>
-      sessionStorage.getItem("machine-logbook-session"),
-    ),
-  ).toBeNull();
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
 });
 
-test("machine photo cards load and filter archives on desktop and mobile", async ({
-  page,
-}, testInfo) => {
-  await login(page, "operator", false);
-  const gallery = page.getByRole("complementary", { name: "Pilih mesin" });
-  for (const name of [
-    "MAILENDER 222",
-    "MS3",
-    "COATING 1",
-    "COATING 2",
-    "COATING 3",
-    "RuiYuan",
-    "MAILENDER 121",
-  ]) {
-    const card = gallery.getByRole("button", { name, exact: true });
-    await expect(card).toBeVisible();
-    await card.locator("img").scrollIntoViewIfNeeded();
-    await expect
-      .poll(() =>
-        card
-          .locator("img")
-          .evaluate((img) => img.complete && img.naturalWidth > 0),
-      )
-      .toBe(true);
-    await card.click();
-
-    await expect(
-      page.getByRole("heading", { name, exact: true }),
-    ).toBeVisible();
-    await page.getByRole("link", { name: "Pilih mesin lain" }).click();
+test("long chat scrolls its timeline while header and composer stay in viewport", async ({ page }) => {
+  await login(page);
+  const items = Array.from({ length: 40 }, (_, index) => ({
+    id: String(index + 1),
+    machine_id: 1,
+    text: `Catatan ${index + 1}\nPemeriksaan mesin\nHasil pemeriksaan tercatat`,
+    author: { id: "other-operator", name: "Operator lain" },
+    created_at: `2026-01-${index < 20 ? "01" : "02"}T08:${String(index % 20).padStart(2, "0")}:00Z`,
+    photos: [],
+  }));
+  await page.route("**/api/v1/machines/1/messages?*", (route) => route.fulfill({ json: { items } }));
+  await choose(page);
+  const timeline = page.getByRole("region", { name: "Riwayat pesan", exact: true });
+  await expect(page.locator(".message-entry")).toHaveCount(40);
+  await expect(page.locator(".message-own")).toHaveCount(0);
+  await expect(page.locator(".message-date")).toHaveCount(2);
+  await expect.poll(() => timeline.evaluate((node) => node.scrollHeight > node.clientHeight && node.scrollTop > 0)).toBe(true);
+  for (const position of ["top", "bottom"]) {
+    await timeline.evaluate((node, edge) => { node.scrollTop = edge === "top" ? 0 : node.scrollHeight; }, position);
+    await expect(page.locator(".message-entry")[position === "top" ? "first" : "last"]()).toBeInViewport();
+    await expect(page.getByRole("heading", { name: "MAILENDER 222", exact: true })).toBeInViewport();
+    await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Kirim pesan", exact: true })).toBeInViewport();
+    expect(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight + 1)).toBe(true);
   }
+});
+
+test("search finds full machine history, paginates matches and survives navigation", async ({ page }, testInfo) => {
+  await login(page);
+  const headers = { Authorization: `Bearer ${await token(page)}` };
+  const term = `search-${testInfo.project.name}-${Date.now()}`;
+  const literalQuery = `${term} oldest 100%_literal`;
+  async function post(machine, text, image) {
+    const response = await page.request.post(`/api/v1/machines/${machine}/messages`, {
+      headers, multipart: image ? { text, photos: image } : { text },
+    });
+    expect(response.status()).toBe(201);
+    return response.json();
+  }
+  const oldest = literalQuery;
+  await post(1, oldest, await photo(page));
+  for (let i = 0; i < 21; i += 1) await post(1, `${term} match ${i}`);
+  for (let i = 0; i < 21; i += 1) await post(1, `newer unrelated ${i}`);
+  await post(2, `${term} other machine`);
+  await choose(page);
+  await expect(page.locator(".message-text").filter({ hasText: term })).toHaveCount(0);
+  const composer = page.getByLabel("Pesan untuk MAILENDER 222");
+  await composer.fill("Draft tetap ada");
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  await page.getByRole("button", { name: "Cari pesan", exact: true }).click();
+  const search = page.getByRole("searchbox", { name: "Cari teks di mesin ini" });
+  await expect(search).toBeFocused();
+  await search.fill(`  ${term.toUpperCase()}  `);
+  await expect(page).not.toHaveURL(/\?q=/);
+  await page.getByRole("button", { name: "Cari", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`q=${term.toUpperCase()}`));
+  await expect(page.locator(".message-text")).toHaveCount(20);
+  await expect(composer).toHaveValue("Draft tetap ada");
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Muat hasil sebelumnya", exact: true }).click();
+  await expect(page.locator(".message-text")).toHaveCount(22);
+  await expect(page.locator(".message-text").first()).toHaveText(oldest);
+  await expect(page.locator(".message-text").filter({ hasText: "other machine" })).toHaveCount(0);
+  const oldestEntry = page.locator(".message-entry").filter({ hasText: oldest });
+  await oldestEntry.getByRole("button", { name: "Perbesar foto 1", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("img")).toBeVisible();
+  await page.keyboard.press("Escape");
   await accessible(page);
-  for (const width of [320, 390, 768, 1440]) {
+  const viewport = page.viewportSize();
+  for (const width of [320, 768, 1024]) {
     await page.setViewportSize({ width, height: 900 });
-    await noOverflow(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
-  await page.setViewportSize({
-    width: testInfo.project.name === "mobile" ? 390 : 1440,
-    height: 1000,
-  });
-  await page.screenshot({
-    path: testInfo.outputPath("machine-gallery.png"),
-    fullPage: true,
-  });
-  await expect(page).not.toHaveURL(/machine_id=/);
+  await page.setViewportSize(viewport);
+  await page.getByRole("button", { name: "Hapus foto 1", exact: true }).click();
+  await composer.fill("Sent outside active filter");
+  const refreshed = page.waitForResponse((response) => response.request().method() === "GET" && new URL(response.url()).searchParams.get("q") === term.toUpperCase());
+  await send(page);
+  await refreshed;
+  await expect(page.locator(".message-text")).toHaveCount(20);
+  await expect(page.locator(".message-text").filter({ hasText: "Sent outside active filter" })).toHaveCount(0);
+  await search.fill(literalQuery);
+  await search.press("Enter");
+  await expect(page.locator(".message-text")).toHaveText([oldest]);
+  await page.reload();
+  await expect(search).toHaveValue(literalQuery);
+  await expect(page.locator(".message-text")).toHaveText([oldest]);
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page).toHaveURL(/\/machines\/1$/);
+  await expect(page.locator(".message-text").filter({ hasText: "Sent outside active filter" })).toBeVisible();
+  await page.goBack();
+  await expect(search).toHaveValue(literalQuery);
+  await expect(page.locator(".message-text")).toHaveText([oldest]);
+  await page.goForward();
+  await expect(search).toHaveValue("");
+  await search.fill(`${term}-missing`);
+  await search.press("Enter");
+  await expect(page.getByRole("heading", { name: "Tidak ada pesan yang cocok" })).toBeVisible();
+  await search.fill("x".repeat(201));
+  await search.press("Enter");
+  await expect(page.getByRole("alert")).toContainText("maksimal 200 karakter");
+  await search.press("Escape");
+  await expect(search).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cari pesan", exact: true })).toBeFocused();
+  await page.getByRole("link", { name: "Pilih mesin lain", exact: true }).click();
+  await choose(page, "MS3");
+  await page.getByRole("button", { name: "Cari pesan", exact: true }).click();
+  await search.fill(term);
+  await search.press("Enter");
+  await expect(page.locator(".message-text")).toHaveText([`${term} other machine`]);
 });
 
-test("machine-first navigation and empty shifts retain machine/date/shift", async ({
-  page,
-}, testInfo) => {
-  const requests = [];
-  page.on("request", (r) => {
-    if (r.url().includes("/api/v1/logbooks?")) requests.push(r.url());
+test("search cancels stale pages and retries failures without losing the query", async ({ page }) => {
+  await login(page);
+  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "search-author", name: "Pengujian operator" }, created_at: "2026-01-01T00:00:00Z", photos: [] });
+  let releaseInitial;
+  let releaseOlder;
+  let olderStarted;
+  const initial = new Promise((resolve) => { releaseInitial = resolve; });
+  const older = new Promise((resolve) => { releaseOlder = resolve; });
+  const started = new Promise((resolve) => { olderStarted = resolve; });
+  let fail = true;
+  await page.route("**/api/v1/machines/1/messages?*", async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const q = params.get("q");
+    if (!q) {
+      await initial;
+      return route.fulfill({ json: { items: [message("old-initial", "Stale initial")] } });
+    }
+    if (q === "first" && params.has("cursor")) {
+      olderStarted();
+      await older;
+      return route.fulfill({ json: { items: [message("old-page", "Stale older")] } });
+    }
+    if (q === "broken" && fail) return route.fulfill({ status: 500, json: { error: { code: "internal_error" } } });
+    return route.fulfill({ json: { items: [message(q, q)], ...(q === "first" ? { next_cursor: "first-cursor" } : {}) } });
   });
-  await login(page, "operator", false);
-  await expect(
-    page.getByRole("link", { name: "Arsip baru", exact: true }),
-  ).toHaveCount(0);
-  expect(requests).toEqual([]);
-  await expect(
-    page.getByRole("navigation", { name: "Tujuan logbook" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "RuiYuan", exact: true }).click();
-  await page.getByRole("link", { name: "Arsip baru", exact: true }).click();
-  await expect(page).toHaveURL(/\/new\?machine_id=6/);
-  await accessible(page);
-  await noOverflow(page);
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toHaveValue("6");
-  await expect(
-    page.getByRole("combobox", { name: "Mesin", exact: true }),
-  ).toBeDisabled();
-  await page.goto("/machines/6/shifts/2026-12-31/3");
-  await expect(
-    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: /Shift berikutnya/ }).click();
-  await expect(page).toHaveURL(/\/machines\/6\/shifts\/2027-01-01\/1$/);
-  await page.getByRole("link", { name: "Tambah logbook", exact: true }).click();
-  await expect(page.getByLabel("Tanggal logbook")).toHaveValue("2027-01-01");
-  await expect(
-    page.getByRole("combobox", { name: "Shift", exact: true }),
-  ).toHaveValue("1");
-  await page.goto("/machines/6/shifts/2027-01-01/1");
-  await page.getByRole("link", { name: /Shift sebelumnya/ }).click();
-  await expect(page).toHaveURL(/\/machines\/6\/shifts\/2026-12-31\/3$/);
-  await expect(
-    page.getByRole("heading", { name: "Belum ada arsip", exact: true }),
-  ).toBeVisible();
-  await accessible(page);
-  await noOverflow(page);
-  await page.screenshot({
-    path: testInfo.outputPath("empty-shift.png"),
-    fullPage: true,
-  });
-  expect(
-    requests.every(
-      (url) => new URL(url).searchParams.get("machine_id") === "6",
-    ),
-  ).toBe(true);
+  await choose(page);
+  await page.getByRole("button", { name: "Cari pesan", exact: true }).click();
+  const search = page.getByRole("searchbox", { name: "Cari teks di mesin ini" });
+  await search.fill("first");
+  await search.press("Enter");
+  await expect(page.locator(".message-text")).toHaveText(["first"]);
+  releaseInitial();
+  await page.getByRole("button", { name: "Muat hasil sebelumnya", exact: true }).click();
+  await started;
+  await search.fill("second");
+  await search.press("Enter");
+  await expect(page.locator(".message-text")).toHaveText(["second"]);
+  releaseOlder();
+  await search.fill("first");
+  await search.press("Enter");
+  await expect(page.getByRole("button", { name: "Muat hasil sebelumnya", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Muat hasil sebelumnya", exact: true }).click();
+  await expect(page.locator(".message-text")).toHaveText(["Stale older", "first"]);
+  await search.fill("broken");
+  await search.press("Enter");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(search).toHaveValue("broken");
+  fail = false;
+  await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
+  await expect(page.locator(".message-text")).toHaveText(["broken"]);
+  await expect(page.locator(".message-text").filter({ hasText: "Stale initial" })).toHaveCount(0);
 });

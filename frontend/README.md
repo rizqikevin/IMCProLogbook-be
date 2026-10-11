@@ -30,50 +30,61 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 
 ## Alur penggunaan
 
-1. Login dengan akun masing-masing operator.
-2. Pilih foto mesin, lalu buka **Arsip baru**. Mesin sudah terkunci; pilih tanggal dan shift.
-3. **Buka kamera** untuk mengambil beberapa foto tanpa menutup kamera; atau **Pilih foto**.
-4. Periksa foto, hapus foto yang tidak diperlukan, atau ubah urutannya.
-5. Tekan **Simpan logbook**. Semua foto dikirim dalam satu request multipart.
-   Setelah berhasil, **Lanjut mesin lain** membuka pilihan mesin dan langsung menuju
-   form baru dengan shift sebelumnya. Foto sebelumnya tidak dibawa ke form baru.
-6. Cari arsip di mesin terpilih menggunakan rentang tanggal dan shift. Detail menyediakan
-   navigasi halaman, perbesar foto, unduh foto, dan tambah halaman.
-7. Gunakan **Shift sebelumnya / Shift berikutnya** untuk berpindah pada mesin yang sama.
-   Setelah Shift 3, tujuan berikutnya adalah Shift 1 tanggal berikutnya. Shift kosong
-   tetap ditampilkan dengan **Tambah logbook** yang mengisi mesin, tanggal, dan shift.
-   Gunakan **Pilih mesin lain** untuk kembali ke pilihan mesin.
+1. Login dengan akun operator atau admin.
+2. Pilih mesin untuk membuka satu riwayat percakapan yang berkelanjutan.
+3. Ketik atau tempel catatan multiline, pilih foto, atau gunakan keduanya.
+4. Tekan **Kirim pesan**. Nama pengirim dan waktu ditentukan server; tanggal dan shift tidak diperlukan.
+5. Gunakan **Muat pesan sebelumnya** untuk membaca pesan lama. Pesan tampil dari lama ke baru.
+6. **Pilih mesin lain** kembali ke daftar mesin. Draft teks dan foto masing-masing mesin tetap ada selama tab dan sesi yang sama.
+7. Tekan **Cari pesan**, isi teks, lalu tekan **Cari** atau Enter. Pencarian mencakup seluruh riwayat teks mesin ini, bukan hanya pesan yang sudah dimuat. **Muat hasil sebelumnya** membuka kecocokan yang lebih lama.
+8. **Reset**, **Tutup pencarian**, atau Escape mengembalikan riwayat lengkap. Kata pencarian yang sudah dikirim tersimpan pada URL `?q=`, sehingga reload dan tombol Back/Forward memulihkan filter. Mengetik saja tidak mengubah hasil. Draft pesan dan foto tidak berubah saat mencari.
 
-Tanggal awal arsip baru adalah **H-1 berdasarkan tanggal lokal perangkat**, dihitung
-ulang setiap form baru dibuka dan tetap dapat diubah. Jika menambah dari shift
-kosong yang sudah dipilih, tanggal dan shift mengikuti tujuan tersebut. Menambah
-halaman ke arsip yang ada tetap menggunakan tanggal arsip itu.
-Ringkasan di tombol simpan menampilkan mesin, tanggal, dan shift tujuan unggahan.
+Teks ditampilkan sebagai teks biasa, bukan HTML atau Markdown. Baris baru, spasi,
+dan tab tetap disimpan. Satu kiriman menjadi satu pesan; tidak ada parser WhatsApp,
+impor, sinkronisasi realtime, atau edit pesan.
 
-Operator dapat membaca dan menambah arsip. Hanya admin yang mendapat tombol hapus;
-backend tetap memverifikasi hak akses. Foto dibaca sebagai blob menggunakan Bearer token,
-bukan tautan storage publik. Blob URL dan media track kamera dilepas setelah digunakan.
+Arsip lama tampil sebagai arsip foto dengan tanggal dan shift aslinya, tanpa teks
+buatan. Tautan `/logbooks/:id` dan navigasi shift lama tetap dapat dibaca. Form
+pembuatan arsip lama dan penambahan halaman tidak lagi menjadi route frontend.
+Admin tetap dapat menghapus arsip lama melalui detail; backend memverifikasi izin.
 
-Kamera langsung membutuhkan HTTPS atau localhost. Untuk ponsel melalui alamat IP LAN
-HTTP, gunakan **Pilih foto** atau **Gunakan kamera perangkat**, atau sediakan HTTPS.
-Izin dan pergantian kamera mengikuti kemampuan browser/perangkat.
+## Penyimpanan dan kegagalan pengiriman
 
-Foto kamera diambil sebagai JPEG kualitas 94%, dengan sisi terpanjang maksimal 2560px.
-Foto pilihan dari perangkat dipertahankan tanpa kompresi ulang. HEIC perlu dikonversi
-menjadi JPEG sebelum dipilih.
+- Draft teks dan foto hanya berada di memori tab. Berpindah mesin tidak menghapusnya;
+  refresh, menutup tab, atau keluar akun menghapusnya. Browser memberi peringatan
+  saat meninggalkan tab dengan draft. Tidak ada penyimpanan offline.
+- Kegagalan pengiriman mempertahankan draft. Tidak ada pengiriman ulang otomatis.
+  Jika koneksi terputus setelah server mungkin menyimpan pesan, gunakan **Muat ulang
+  riwayat** dan periksa hasil sebelum mengirim ulang agar tidak membuat duplikat.
+- Saat mengirim, teks dan pilihan foto terkunci. Pengiriman tetap berjalan jika
+  pengguna membuka mesin lain; hasil dan draft tetap terkait mesin asal.
+- Maksimal 20.000 karakter Unicode per pesan. Pesan memerlukan teks tidak kosong
+  atau setidaknya satu foto. Teks tidak dipangkas sebelum dikirim.
+- Batas foto mengikuti default backend: 20 foto per request, 10 MiB/foto,
+  40 megapiksel, dan total foto maksimal 95.000.000 byte. JPG, PNG, dan WebP
+  diterima; HEIC harus dikonversi dahulu. Foto perangkat tidak dikompresi ulang.
+- Token sesi berada di `sessionStorage` atau memori jika storage tidak tersedia.
+  Password tidak disimpan. Foto dimuat lewat helper Bearer-token sebagai blob,
+  termasuk URL foto arsip lama; blob URL dilepas saat tidak digunakan.
 
-## Perilaku penyimpanan dan retry
+## Kontrak percakapan
 
-- Foto sebelum disimpan hanya berada di memori tab. Ada peringatan saat meninggalkan
-  halaman; tidak ada sinkronisasi offline atau penyimpanan draft permanen.
-- Session token disimpan di `sessionStorage` (atau memori jika storage tidak tersedia).
-  Password tidak disimpan. Sesi dicek ke backend setelah refresh dan dibersihkan saat 401.
-- Upload tidak diulang otomatis. Jika koneksi terputus, **Periksa hasil unggahan**
-  mencocokkan SHA-256 foto dengan arsip. Append yang hasilnya belum pasti tetap diblokir
-  agar tidak menggandakan halaman; operator dapat membuka arsip untuk memeriksa.
-- Batas frontend mengikuti default backend: 20 foto per request, 100 halaman per arsip,
-  10 MiB/foto, 40 megapiksel, dan total foto maksimal 95.000.000 byte agar tersedia ruang multipart.
-  Jika limit backend diubah, sesuaikan `src/lib/format.js` dan konfigurasi proxy.
+Route utama: `/` untuk pilihan mesin, `/machines/:machineId` untuk percakapan.
+`GET /api/v1/machines/{machineID}/messages?cursor=&limit=&q=` mengembalikan
+`{items, next_cursor?}`. Parameter kosong dihilangkan. Halaman awal berisi pesan
+terbaru dalam urutan waktu menaik; cursor opaque mengambil halaman lebih lama.
+`q` mencari potongan teks literal tanpa membedakan huruf besar/kecil, maksimal
+200 karakter Unicode setelah spasi tepi dipangkas. `%`, `_`, dan backslash bukan
+wildcard. Query kosong berarti riwayat lengkap; parameter `q` berulang, UTF-8
+tidak valid, dan NUL ditolak API. Pencarian tidak mencakup nama pengirim, nama
+file, atau isi foto. Foto pada pesan yang cocok tetap dapat dibuka. Arsip lama
+dan pesan foto tanpa teks muncul kembali setelah filter dihapus.
+Cursor terikat pada mesin dan query yang sama. Frontend membatalkan request lama,
+mereset pagination saat filter berubah, dan memuat ulang hasil setelah mengirim
+pesan saat pencarian aktif agar pesan yang tidak cocok tidak masuk ke hasil.
+`POST` pada route yang sama menggunakan multipart dengan `text` opsional dan
+field `photos` berulang. Respons berisi pesan lengkap dengan `author`, `created_at`,
+dan `photos`; `legacy_archive` mengacu pada arsip foto historis.
 
 ## Build dan Docker
 
@@ -104,10 +115,10 @@ Untuk Linux home server dengan Cloudflare Tunnel tanpa Nginx, ikuti
 src/
   auth.jsx           sesi dan proteksi route
   hooks.js           pembacaan master data, arsip, dan foto
-  lib/api.js         fetch, Bearer token, error, multipart + progress
-  lib/format.js      tanggal dan validasi pilihan foto
-  components/        layout, dialog, kamera
-  pages/             Login, Archives, Capture, Book
+  lib/api.js         fetch, Bearer token, error, multipart, foto terautentikasi
+  lib/messages.js    validasi teks dan penggabungan halaman pesan
+  components/        layout, dialog, draft mesin, foto pesan
+  pages/             Login, Archives (pilihan mesin), Conversation, Book, ShiftArchive
   styles.css         desain responsive tanpa UI framework
 e2e/
   backend/main.go    backend test dengan schema PostgreSQL terisolasi
@@ -129,12 +140,15 @@ TEST_DATABASE_URL='postgres://user:password@localhost:5432/test_database?sslmode
 
 E2E membutuhkan Go dan PostgreSQL test. Runner membuat schema terpisah, akun test, dan
 folder foto sementara; semuanya dibersihkan saat server test berhenti normal. Jangan
-gunakan database production. Pengujian mencakup login, capture berulang dengan kamera
-simulasi, upload batch, urutan halaman, penambahan halaman, akses admin, pencarian,
-network error, sesi berakhir, keyboard, kontras axe, dan overflow desktop/ponsel.
+gunakan database production. Pengujian mencakup teks multiline yang di-escape,
+foto saja, teks dengan foto, persistensi, arsip historis, pagination, draft antar
+mesin, kegagalan jaringan, loading/error/empty, axe, dan overflow desktop/ponsel.
+Kasus pencarian mencakup kecocokan di luar halaman awal, pagination hasil,
+isolasi mesin, literal `%`/`_`, foto, query URL/reload/Back/Forward, pembatalan
+request lama, validasi panjang, hasil kosong, retry, dan kiriman di luar filter.
 
-Desain disepakati dalam `DESIGN.md`. Kamera fisik dan perilaku izin Safari/iOS tetap
-perlu diuji di perangkat operator sebelum deployment.
+Desain disepakati dalam `DESIGN.md`. Pengujian perangkat Android/iOS, keyboard
+ponsel, dan zoom 200% tetap diperlukan sebelum deployment.
 
 ## Install di ponsel (PWA)
 
@@ -148,8 +162,8 @@ Gunakan Docker untuk pengujian yang sama dengan deployment.
 
 Aplikasi tetap membutuhkan internet untuk login, membaca arsip, dan mengunggah.
 Cache PWA hanya menyimpan halaman offline beserta CSS-nya; API, foto, dan token
-login tidak dimasukkan ke Cache Storage. Draft foto tetap berada di memori dan
-hilang jika aplikasi ditutup. Ini bukan fitur sinkronisasi offline.
+login tidak dimasukkan ke Cache Storage. Draft teks dan foto berada di memori tab
+dan hilang saat reload atau aplikasi ditutup. Ini bukan sinkronisasi offline.
 
 Pembaruan tidak memaksa reload atau aktivasi worker saat draft sedang terbuka.
 Worker baru menunggu instance aplikasi lama ditutup. Setelah deploy, tutup seluruh

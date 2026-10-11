@@ -1,6 +1,26 @@
 import { useEffect, useState } from "react";
 import { request } from "./lib/api";
 
+export function useMachines() {
+  const [state, setState] = useState({ machines: [], loading: true, error: null });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ machines: [], loading: true, error: null });
+    request("/machines", { signal: controller.signal })
+      .then((page) => {
+        if (!controller.signal.aborted)
+          setState({ machines: page.items, loading: false, error: null });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError")
+          setState({ machines: [], loading: false, error });
+      });
+    return () => controller.abort();
+  }, [attempt]);
+  return { ...state, retry: () => setAttempt((value) => value + 1) };
+}
+
 export function useCatalog() {
   const [state, setState] = useState({
     machines: [],

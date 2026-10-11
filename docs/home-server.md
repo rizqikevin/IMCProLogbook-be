@@ -80,6 +80,23 @@ npm run dev
 Vite meneruskan API ke port 18472. Environment frontend hanya diperlukan jika ingin
 mengubah alamat development proxy, bukan untuk menjalankan Docker Compose.
 
+## Chat per mesin
+
+Setelah login, pilih mesin untuk membuka percakapan mesin tersebut. Ketik atau
+tempel teks, lampirkan foto bila perlu, lalu kirim. Pesan boleh berisi teks saja,
+foto saja, atau keduanya. Tanggal dan shift tidak perlu diisi. Aplikasi memakai
+akun yang sedang login dan waktu server untuk mencatat pengirim dan waktu pesan.
+
+Riwayat arsip tetap tersedia bersama foto aslinya. Arsip lama mempertahankan
+tanggal dan shift sebagai keterangan arsip, bukan syarat untuk mengirim pesan baru.
+Teks arsip lama tidak dibuat otomatis dari foto. Alur ini tidak mengimpor WhatsApp
+dan tidak menyediakan pembaruan realtime atau penyuntingan pesan.
+
+Deploy backend dan frontend bersamaan dengan perintah Compose di atas. Service
+`migrate` menjalankan migrasi sebelum backend menerima request. Ambil backup
+database dan volume foto sebelum pembaruan; jangan menghapus volume untuk
+menerapkan perubahan alur chat.
+
 ## Backup dan update
 
 ```sh

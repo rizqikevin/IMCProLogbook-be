@@ -60,6 +60,9 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("GET /api/v1/auth/me", s.authenticated(http.HandlerFunc(s.me)))
 	mux.Handle("GET /api/v1/machines", s.authenticated(http.HandlerFunc(s.machines)))
 	mux.Handle("GET /api/v1/shifts", s.authenticated(http.HandlerFunc(s.shifts)))
+	mux.Handle("GET /api/v1/machines/{machineID}/messages", s.authenticated(http.HandlerFunc(s.listMessages)))
+	mux.Handle("POST /api/v1/machines/{machineID}/messages", s.authenticated(s.upload(http.HandlerFunc(s.createMessage))))
+	mux.Handle("GET /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}", s.authenticated(http.HandlerFunc(s.messagePhoto)))
 	mux.Handle("GET /api/v1/logbooks", s.authenticated(http.HandlerFunc(s.list)))
 	mux.Handle("POST /api/v1/logbooks", s.authenticated(s.upload(http.HandlerFunc(s.create))))
 	mux.Handle("GET /api/v1/logbooks/{id}", s.authenticated(http.HandlerFunc(s.get)))
@@ -236,6 +239,14 @@ func (s *Server) appendPhotos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) multipart(w http.ResponseWriter, r *http.Request, create bool) ([]service.Upload, error) {
+	allowed := map[string]bool{}
+	if create {
+		allowed = map[string]bool{"machine_id": true, "log_date": true, "shift_id": true}
+	}
+	return s.multipartFields(w, r, allowed, create)
+}
+
+func (s *Server) multipartFields(w http.ResponseWriter, r *http.Request, allowed map[string]bool, required bool) ([]service.Upload, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, s.opts.MaxRequestBytes)
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		if r.MultipartForm != nil {
@@ -251,17 +262,13 @@ func (s *Server) multipart(w http.ResponseWriter, r *http.Request, create bool) 
 		_ = r.MultipartForm.RemoveAll()
 		return nil, &domain.ValidationError{Message: message}
 	}
-	allowed := map[string]bool{}
-	if create {
-		allowed = map[string]bool{"machine_id": true, "log_date": true, "shift_id": true}
-	}
 	for key, values := range r.MultipartForm.Value {
 		if !allowed[key] || len(values) != 1 {
 			return invalid("unknown or repeated form field: " + key)
 		}
 	}
 	for key := range allowed {
-		if len(r.MultipartForm.Value[key]) != 1 {
+		if required && len(r.MultipartForm.Value[key]) != 1 {
 			return invalid("required form field: " + key)
 		}
 	}
@@ -285,6 +292,10 @@ func (s *Server) photo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer body.Close()
+	s.servePhoto(w, r, photo, body)
+}
+
+func (s *Server) servePhoto(w http.ResponseWriter, r *http.Request, photo domain.Photo, body io.ReadCloser) {
 	w.Header().Set("Content-Type", photo.ContentType)
 	w.Header().Set("Content-Length", strconv.FormatInt(photo.Size, 10))
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": photo.ID + extension(photo.ContentType)}))
@@ -292,7 +303,7 @@ func (s *Server) photo(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodHead {
 		return
 	}
-	if _, err = io.Copy(w, body); err != nil {
+	if _, err := io.Copy(w, body); err != nil {
 		s.opts.Logger.Error("stream photo failed", "request_id", requestID(r), "error", err)
 	}
 }

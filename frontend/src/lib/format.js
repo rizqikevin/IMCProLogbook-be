@@ -1,14 +1,3 @@
-export function today() {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-export function yesterday() {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 export function formatDate(value, options = {}) {
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
@@ -36,19 +25,13 @@ export function formatBytes(bytes) {
 
 export const limits = {
   photos: 20,
-  totalPhotos: 100,
   photoBytes: 10 * 1024 * 1024,
   requestBytes: 95_000_000,
-  pixels: 40_000_000,
 };
 
-export function validateSelection(
-  existing,
-  incoming,
-  remaining = limits.photos,
-) {
-  if (existing.length + incoming.length > Math.min(limits.photos, remaining)) {
-    return `Maksimal ${Math.min(limits.photos, remaining)} foto untuk unggahan ini.`;
+export function validateSelection(existing, incoming) {
+  if (existing.length + incoming.length > limits.photos) {
+    return `Maksimal ${limits.photos} foto untuk unggahan ini.`;
   }
   for (const file of incoming) {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))

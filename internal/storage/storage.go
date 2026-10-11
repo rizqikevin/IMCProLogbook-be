@@ -19,7 +19,7 @@ type Store interface {
 var (
 	ErrInvalidKey   = errors.New("invalid storage key")
 	ErrSizeMismatch = errors.New("object size does not match declared size")
-	keyPattern      = regexp.MustCompile(`^logbooks/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
+	keyPattern      = regexp.MustCompile(`^(logbooks|messages)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$`)
 )
 
 func validateKey(key string) error {

@@ -56,7 +56,7 @@ export function Icon({ name, size = 20 }) {
 
 export function Loading({ children = "Memuat arsip…", full = false }) {
   return (
-    <div className={`loading ${full ? "loading-full" : ""}`} role="status">
+    <div className={`loading ${full ? "loading-full" : ""}`} role="status" aria-live="polite">
       <span className="loading-mark" aria-hidden="true" />
       <span>{children}</span>
     </div>

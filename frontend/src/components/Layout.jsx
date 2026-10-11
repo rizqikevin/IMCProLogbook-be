@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth";
 import { ErrorNotice, Icon } from "./common";
+import { MessageDrafts } from "./MessageDrafts";
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const conversation = useMatch("/machines/:machineId");
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const { pathname } = useLocation();
-  const editing = pathname === "/new" || pathname.endsWith("/add");
   async function signOut() {
     setBusy(true);
     setError(null);
@@ -25,7 +25,7 @@ export default function Layout() {
       <a className="skip-link" href="#main">
         Lewati ke konten
       </a>
-      <header className="app-header">
+      {!conversation && <header className="app-header">
         <div className="header-inner">
           <Link className="wordmark" to="/">
             <img
@@ -49,7 +49,6 @@ export default function Layout() {
                 {user.role === "admin" ? "Administrator" : "Operator"}
               </span>
             </div>
-            {!editing && (
               <button
                 className="icon-button"
                 aria-label="Keluar dari akun"
@@ -59,22 +58,21 @@ export default function Layout() {
               >
                 <Icon name="logout" />
               </button>
-            )}
           </div>
         </div>
-      </header>
+      </header>}
       {error && (
         <div className="page">
           <ErrorNotice error={error} />
         </div>
       )}
-      <main id="main" tabIndex={-1}>
-        <Outlet />
+      <main id="main" tabIndex={-1} className={conversation ? "conversation-main" : undefined}>
+        <MessageDrafts><Outlet /></MessageDrafts>
       </main>
-      <footer className="app-footer">
+      {!conversation && <footer className="app-footer">
         <span>Machine Logbook Archive</span>
-        <span>Mesin · Tanggal · Shift</span>
-      </footer>
+        <span>Catatan dan foto mesin</span>
+      </footer>}
     </>
   );
 }

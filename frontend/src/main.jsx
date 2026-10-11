@@ -6,10 +6,11 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Archives from "./pages/Archives";
 import Book from "./pages/Book";
-import Capture from "./pages/Capture";
+import Conversation from "./pages/Conversation";
 import ShiftArchive from "./pages/ShiftArchive";
 import "./styles.css";
 import "./brand.css";
+import "./conversation.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -28,13 +29,12 @@ const router = createBrowserRouter([
         element: <Layout />,
         children: [
           { index: true, element: <Archives /> },
-          { path: "/new", element: <Capture /> },
+          { path: "/machines/:machineId", element: <Conversation /> },
           {
             path: "/machines/:machineId/shifts/:date/:shiftId",
             element: <ShiftArchive />,
           },
           { path: "/logbooks/:id", element: <Book /> },
-          { path: "/logbooks/:id/add", element: <Capture /> },
         ],
       },
     ],
@@ -46,7 +46,7 @@ const router = createBrowserRouter([
         <p className="section-label">404</p>
         <h1>Halaman tidak ditemukan.</h1>
         <Link to="/" className="button button-primary">
-          Kembali ke arsip
+          Pilih mesin
         </Link>
       </main>
     ),

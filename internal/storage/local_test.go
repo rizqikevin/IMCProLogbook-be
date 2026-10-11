@@ -60,6 +60,30 @@ func TestLocalRoundTrip(t *testing.T) {
 	}
 }
 
+func TestLocalMessagePhotoRoundTrip(t *testing.T) {
+	store, _ := newTestLocal(t)
+	ctx := context.Background()
+	key := strings.Replace(testKey, "logbooks/", "messages/", 1)
+	if err := store.Put(ctx, key, strings.NewReader("image bytes"), 11, "image/jpeg"); err != nil {
+		t.Fatal(err)
+	}
+	file, err := store.Open(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(file)
+	_ = file.Close()
+	if err != nil || string(data) != "image bytes" {
+		t.Fatalf("read = %q, %v", data, err)
+	}
+	if err := store.Delete(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Open(ctx, key); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("missing object error = %v", err)
+	}
+}
+
 func TestLocalRejectsUnsafeKeys(t *testing.T) {
 	store, _ := newTestLocal(t)
 	ctx := context.Background()

@@ -1,8 +1,14 @@
 openapi: 3.0.3
 info:
-  title: Machine Logbook Archive API
-  version: 1.0.0
+  title: Machine Logbook API
+  version: 1.1.0
   description: |
+    Timeline mesin memakai GET/POST /api/v1/machines/{machineID}/messages.
+    Pesan menerima teks, foto, atau keduanya tanpa tanggal dan shift. Penulis serta
+    waktu ditentukan server. Arsip lama tampil sebagai pesan teks kosong dengan
+    legacy_archive, waktu asli, penulis asli, dan seluruh foto asli.
+    Pesan baru tidak mendukung edit, import, realtime, atau pengiriman idempoten.
+
     Arsip foto logbook dengan login per operator. Operator dan admin dapat membaca,
     membuat, dan menambah foto pada semua logbook; penghapusan memerlukan admin.
     Satu logbook unik untuk kombinasi machine_id, log_date, dan shift_id.
@@ -46,7 +52,138 @@ tags:
   - name: Reference
   - name: Logbooks
   - name: Photos
+  - name: Messages
 paths:
+  /api/v1/machines/{machineID}/messages:
+    parameters:
+      - $ref: '#/components/parameters/MachineID'
+    get:
+      tags: [Messages]
+      operationId: listMachineMessages
+      summary: Membaca timeline mesin
+      description: |
+        Halaman terbaru dipilih menurut created_at dan id menurun; items dikirim
+        dalam urutan kronologis menaik. next_cursor mengambil halaman lebih lama.
+        Cursor opaque terikat pada mesin dan q setelah trim; perubahan atau penghapusan
+        q dengan cursor lama ditolak (400). Mesin harus aktif. Parameter selain
+        cursor, limit, dan q, serta parameter berulang, ditolak.
+        Pencarian memfilter seluruh riwayat sebelum limit, bukan hanya halaman terbaru.
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 512 }
+          description: Cursor halaman sebelumnya; kosong sama dengan halaman terbaru.
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+          description: |
+            Substring literal pada teks pesan, tanpa membedakan huruf besar/kecil.
+            Spasi luar dihapus; kosong atau hanya whitespace berarti tanpa filter.
+            Maksimal 200 karakter Unicode setelah trim; UTF-8 tidak valid dan NUL ditolak.
+            Persen, underscore, dan backslash bukan wildcard. Nama penulis dan foto
+            tidak dicari. Foto pada pesan yang cocok tetap dikirim. Gunakan q yang
+            sama setelah trim pada setiap halaman; hapus cursor saat mengganti q.
+      responses:
+        '200':
+          description: Halaman timeline; items selalu array, termasuk saat kosong.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessagePage' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Messages]
+      operationId: createMachineMessage
+      summary: Mengirim teks atau foto ke timeline mesin
+      description: |
+        Wajib teks nonblank atau minimal satu foto. Server menormalkan CRLF menjadi
+        LF sebelum validasi dan penyimpanan; whitespace lain dipertahankan persis.
+        Maksimal 20000 karakter Unicode setelah normalisasi, UTF-8 valid tanpa NUL.
+        Field text maksimal sekali; photos berulang mengikuti urutan halaman.
+        Field lain ditolak.
+        Batas upload foto sama dengan arsip; publikasi seluruh pesan bersifat atomik.
+        Semua operator dan admin dapat mengirim pada mesin aktif.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                text: { type: string, maxLength: 20000 }
+                photos:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        '201':
+          description: Pesan tersimpan, dengan penulis dan waktu server.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Batas foto atau reservasi upload kedaluwarsa.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '413':
+          description: Body melebihi batas upload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}:
+    parameters:
+      - $ref: '#/components/parameters/MachineID'
+      - name: messageID
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/ID' }
+      - $ref: '#/components/parameters/PhotoID'
+    get:
+      tags: [Photos]
+      operationId: getMessagePhoto
+      summary: Membaca foto pesan dengan Bearer token
+      description: |
+        Foto harus milik pesan dan mesin aktif pada path. Gunakan URL yang
+        dikembalikan API; foto historis tetap memakai URL arsip lama.
+        HEAD didukung dengan header sama tanpa body.
+      responses:
+        '200':
+          description: Byte foto asli; Content-Length, Content-Disposition, ETag tersedia.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /health/live:
     get:
       tags: [Health]
@@ -574,6 +711,11 @@ components:
         health tidak memerlukan token. Sesi berakhir pada expires_at atau saat
         logout; reset password dan penonaktifan pengguna juga mencabut sesi.
   parameters:
+    MachineID:
+      name: machineID
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
     LogbookID:
       name: id
       in: path
@@ -611,6 +753,40 @@ components:
         type: string
         example: '"2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"'
   schemas:
+    MessageAuthor:
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: '#/components/schemas/ID' }
+        name: { type: string }
+    LegacyArchive:
+      type: object
+      required: [id, log_date, shift]
+      properties:
+        id: { $ref: '#/components/schemas/ID' }
+        log_date: { $ref: '#/components/schemas/LogDate' }
+        shift: { $ref: '#/components/schemas/Shift' }
+    Message:
+      type: object
+      required: [id, machine_id, text, author, created_at, photos]
+      properties:
+        id: { $ref: '#/components/schemas/ID' }
+        machine_id: { type: integer, format: int64, minimum: 1 }
+        text: { type: string, maxLength: 20000 }
+        author: { $ref: '#/components/schemas/MessageAuthor' }
+        created_at: { type: string, format: date-time }
+        photos:
+          type: array
+          items: { $ref: '#/components/schemas/Photo' }
+        legacy_archive: { $ref: '#/components/schemas/LegacyArchive' }
+    MessagePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        next_cursor: { type: string, description: Cursor opaque untuk pesan lebih lama. }
     ID:
       type: string
       format: uuid

@@ -27,6 +27,10 @@ type Repository interface {
 	Machines(context.Context) ([]domain.Machine, error)
 	Shifts(context.Context) ([]domain.Shift, error)
 	CheckReferences(context.Context, int64, int64) error
+	CheckMachine(context.Context, int64) error
+	CreateMessage(context.Context, domain.Message) (domain.Message, error)
+	ListMessages(context.Context, domain.MessageFilter) ([]domain.Message, error)
+	MessagePhoto(context.Context, int64, string, string) (domain.Photo, error)
 	ReserveUploads(context.Context, []string, time.Time) error
 	Create(context.Context, domain.Logbook) (domain.Logbook, error)
 	AppendPhotos(context.Context, string, []domain.Photo, int) (domain.Logbook, error)

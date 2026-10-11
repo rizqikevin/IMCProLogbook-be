@@ -1,19 +1,19 @@
-# Machine Logbook Archive
+# Machine Logbook Conversations
 
 Direction approved by the user: industrial light, warm white surfaces, charcoal text,
-green accent, compact archive lists, large camera controls for machine operators.
+navy accent from the supplied logo, machine-first conversations for factory operators.
 Apply antislop during implementation.
 
-Reading: a working archive for factory operators, using the clarity of a paper
-register with a restrained industrial palette. ENERGY 1 / RHYTHM 2 / MOTION 1.
+Reading: a continuous machine logbook for factory operators, using the clarity of a
+paper register with a restrained industrial palette. ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 - Warm paper background keeps scanned logbook pages visually familiar.
 - Charcoal text and high contrast controls support reading on the factory floor.
-- Forest green identifies the primary action and selected machine, not decoration.
+- Navy identifies the primary action and selected machine, not decoration.
 - System sans-serif keeps labels legible and avoids external font requests.
-- Dates and page numbers form the repeated register motif; all values come from data.
-- Choose a machine first, then browse its archive list. No cross-machine list,
-  invented metrics, charts, or activity feeds.
+- Author names and server timestamps form the register motif; all values come from data.
+- Choose a machine first, then read its continuous timeline. No date or shift entry,
+  cross-machine feed, invented metrics, or charts.
 - Native dialogs provide focus containment and Escape handling. Controls have visible
   focus, at least 44px touch targets, and meaningful text labels.
 - Motion is limited to brief hover/focus transitions; reduced motion is respected.
@@ -21,47 +21,84 @@ register with a restrained industrial palette. ENERGY 1 / RHYTHM 2 / MOTION 1.
 
 ## IMCPro refresh
 
-The supplied logo now anchors the light industrial direction. Navy replaces green
-for primary actions and selected machines; red and yellow remain in the logo only.
-Login uses a pale navy panel and more compact mobile typography. White filter
-surfaces distinguish search controls from archive results. Numbered photo sections
-and the raised save bar separate preparation from submission. Existing accessible
-controls and the ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain in place.
+The supplied logo anchors the light industrial direction. Navy marks primary
+actions; red and yellow remain in the logo only. White message surfaces sit on
+a pale navy reading area to distinguish the timeline from the composer. The
+system sans-serif and existing ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain.
 
 ## Machine photography
 
 User-supplied machine cutouts identify the initial machine chooser: MAILENDER, MS3, COATING
 (shared by COATING 1–3), and RuiYuan. Contain-fit images preserve the full machine.
-Six columns on wide screens become three on tablets and two on phones. Capture
-shows a smaller machine preview; the chosen machine is locked for new archives.
+Six columns on wide screens become three on tablets and two on phones. A small
+machine photo beside the conversation heading keeps the destination visible.
 
-## Archive navigation
+## Conversation layout
 
-Archive lists always belong to one machine. Date and shift filters remain within
-that machine. Previous/next shift links show the destination date and shift and
-advance one slot at a time, including empty shifts. Shift 3 advances to Shift 1
-on the next log date. Empty slots offer a prefilled new archive form. No counter
-entry or comparison calculation is introduced.
+One machine has one timeline, independent of shifts and dates. The user's WhatsApp-like
+interaction direction uses a viewport-fit shell: back control, small existing machine
+photo, machine name, scrolling history, and compact bottom composer. Global app chrome
+stays on the chooser and archives, not inside a conversation. No fake online status,
+read receipts, or realtime claims are shown.
 
-Successful uploads offer an explicit “Lanjut mesin lain” action alongside the
-confirmation. The existing photo chooser then opens a new capture form directly,
-carrying only the shift. New forms default to the previous local calendar day;
-an explicitly selected empty shift retains its date. The success action spans
-the width on phones so it is easy to reach without competing with photo controls.
+Date separators group server timestamps chronologically. Authenticated user ID, never
+list position or author name, aligns the user's messages right with a pale navy fill;
+other messages stay white on the left. Quiet clock times keep message content primary.
+IMCPro navy remains the send action accent, not WhatsApp green. Existing system type,
+machine photos, and ENERGY 1 / RHYTHM 2 / MOTION 1 preserve the approved identity.
 
-## Operator shortcuts
+The composer accepts text, gallery photos, camera captures, or both. One-line text grows
+up to a bounded height, while removable thumbnails stay in a horizontal strip. Existing
+camera, plus, back, and up icons identify capture, attachment, navigation, and send;
+accessible names and visible focus explain every icon-only control. Drafts survive
+machine navigation and failed requests within the tab. Server data remains authoritative.
 
-The first screen remains a machine chooser without an extra action choice.
-A machine photo above archive filters reinforces the current scope. The date
-defaults to H-1 with a single editable date field. The save bar repeats
-the actual machine, date, and shift, including when appending to an existing archive.
-These controls reuse the navy palette, 44px targets, and ENERGY 1 / RHYTHM 2 /
-MOTION 1; no new visual assets or dashboard metrics are added.
+Historical archives retain their actual dates, shifts, author, timestamps, and
+photos. A labelled archive link provides context without fabricated message text.
 
-## Simpler operator language
+## Search within a machine
 
-Use short Indonesian actions: Tambah logbook, Simpan logbook, and Lanjut mesin
-lain. Remove repeated chooser headings and introductory labels. Keep draft,
-upload, and error guidance explicit. Mobile capture reduces heading spacing
-without shrinking touch targets. Routes, date defaults, upload behavior, and
-machine/shift navigation remain unchanged.
+Reading: text retrieval inside the existing factory logbook, retaining industrial
+light, system type, and ENERGY 1 / RHYTHM 2 / MOTION 1.
+
+The header's labelled search button keeps discovery beside the machine identity.
+An inline form sits above the scrolling timeline so search never replaces the
+composer, camera, or machine-scoped draft. White controls and the existing navy
+submit action distinguish input from the pale reading surface without new assets.
+The form stacks its input above 44px actions on phones and joins one row when
+space permits. Existing focus styles, an explicit label, Enter submission, and
+Escape with focus return support keyboard use. No extra animation is introduced.
+
+Typing is a draft search; submitting commits the trimmed query to the URL. Results
+keep the existing chronological message layout, author names, dates, and protected
+photos. A visible query summary distinguishes filtered history from the full
+timeline without implying a total count. Loading, failed search with retry, and
+no-match guidance remain distinct. Reset or close restores the complete history.
+Query changes discard pending pages; sending in search refreshes server results
+rather than inserting a possibly unrelated message. Back/Forward and reload use
+the committed URL query, while composer drafts retain their existing lifecycle.
+
+
+## Responsive and accessible behavior
+
+Mobile uses compact 44px controls, dynamic viewport sizing, visual-viewport keyboard
+updates, and safe-area padding. Only history scrolls vertically during normal reading;
+the composer stays in the shell's layout rather than covering messages. Longer text
+scrolls within its bounded input. Older pages preserve the reading position when
+prepended, and photo slots reserve space while protected images load.
+
+Tablet adds reading gutters and two-column photo groups. Desktop caps the shell width
+so short chat lines do not stretch across the monitor. Long pasted tokens wrap and
+multiline whitespace remains visible. White controls and pale navy own-message bubbles
+separate actions from content without shadows, decoration, or new assets.
+
+## Verification handoff
+
+Conversation browser tests cover text/photos/both, actual camera capture and upload,
+escaped multiline content, historical photos, machine drafts, pagination, failures,
+own-author alignment, date groups, timeline-only scrolling, axe, and responsive widths.
+Search coverage adds full-history matching, machine isolation, literal text,
+matching photos, result pagination, URL navigation, stale requests, search errors,
+empty results, draft preservation, and sends that do not match the active query.
+Runtime, contrast, zoom, and device checks must be performed by the main verifier;
+no visual or accessibility pass is claimed solely from implementation.

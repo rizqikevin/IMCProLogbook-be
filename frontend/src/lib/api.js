@@ -79,13 +79,14 @@ export async function request(
   const token = authenticated ? readSession()?.access_token : null;
   const headers = { Accept: blob ? "image/*" : "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const multipart = body instanceof FormData;
+  if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
   let response;
   try {
     response = await fetch(`${base}/api/v1${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
       signal,
       credentials: "omit",
       cache: "no-store",
@@ -120,80 +121,11 @@ export function queryString(filters) {
   return query.toString();
 }
 
-export function uploadLogbook({
-  bookId,
-  machineId,
-  date,
-  shiftId,
-  files,
-  signal,
-  onProgress,
-}) {
-  return new Promise((resolve, reject) => {
-    const form = new FormData();
-    if (!bookId) {
-      form.append("machine_id", machineId);
-      form.append("log_date", date);
-      form.append("shift_id", shiftId);
-    }
-    files.forEach((file) => form.append("photos", file, file.name));
-    const xhr = new XMLHttpRequest();
-    const token = readSession()?.access_token;
-    xhr.open(
-      "POST",
-      `${base}/api/v1/logbooks${bookId ? `/${encodeURIComponent(bookId)}/photos` : ""}`,
-    );
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.timeout = 130_000;
-    const abort = () => xhr.abort();
-    const cleanup = () => signal?.removeEventListener("abort", abort);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable)
-        onProgress?.(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
-      cleanup();
-      let payload;
-      try {
-        payload = JSON.parse(xhr.responseText);
-      } catch {
-        payload = null;
-      }
-      if (xhr.status >= 200 && xhr.status < 300 && payload?.id)
-        resolve(payload);
-      else {
-        if (xhr.status === 401) expireSession(token);
-        reject(responseError(xhr.status, payload));
-      }
-    };
-    xhr.onerror = () => {
-      cleanup();
-      reject(
-        new ApiError(
-          "Koneksi terputus saat mengunggah. Periksa arsip sebelum mencoba lagi.",
-        ),
-      );
-    };
-    xhr.ontimeout = () => {
-      cleanup();
-      reject(
-        new ApiError(
-          "Waktu unggah habis. Periksa arsip sebelum mencoba lagi.",
-          0,
-          "timeout",
-        ),
-      );
-    };
-    xhr.onabort = () => {
-      cleanup();
-      reject(new DOMException("Upload canceled", "AbortError"));
-    };
-    if (signal?.aborted) {
-      reject(new DOMException("Upload canceled", "AbortError"));
-      return;
-    }
-    signal?.addEventListener("abort", abort, { once: true });
-    xhr.send(form);
-  });
+export function requestPhoto(url, signal) {
+  const api = new URL(`${base || window.location.origin}/api/v1/`, window.location.origin);
+  const target = new URL(url, api);
+  if (target.origin !== api.origin || !target.pathname.startsWith("/api/v1/"))
+    throw new ApiError("Alamat foto tidak valid.");
+  return request(`${target.pathname.slice(7)}${target.search}`, { blob: true, signal });
 }
+

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import ShiftNavigation from "../components/ShiftNavigation";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useBook, usePhoto } from "../hooks";
 import { request } from "../lib/api";
-import { formatBytes, formatDate, formatTime, limits } from "../lib/format";
+import { formatBytes, formatDate, formatTime } from "../lib/format";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 
 export default function Book() {
@@ -21,7 +21,6 @@ export default function Book() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
   const selected =
     book?.photos?.[Math.min(index, (book?.photos?.length || 1) - 1)];
   const photo = usePhoto(id, selected?.id);
@@ -30,7 +29,7 @@ export default function Book() {
     setDeleteError(null);
     try {
       await request(`/logbooks/${id}`, { method: "DELETE" });
-      navigate(`/?machine_id=${book.machine.id}`, { replace: true });
+      navigate(`/machines/${book.machine.id}`, { replace: true });
     } catch (error) {
       setDeleteError(error);
     } finally {
@@ -40,11 +39,11 @@ export default function Book() {
   return (
     <div className="page book-page">
       <Link
-        to={book ? `/?machine_id=${book.machine.id}` : "/"}
+        to={book ? `/machines/${book.machine.id}` : "/"}
         className="back-link"
       >
         <Icon name="back" />
-        Arsip mesin
+        Catatan mesin
       </Link>
       {loading ? (
         <Loading />
@@ -52,18 +51,6 @@ export default function Book() {
         <ErrorNotice error={error} onRetry={retry} />
       ) : (
         <>
-          {location.state?.saved && (
-            <div className="notice notice-success saved-notice" role="status">
-              <Icon name="check" />
-              <span>Logbook tersimpan. Semua foto berhasil diunggah.</span>
-              <Link
-                className="button button-primary"
-                to={`/?action=new&shift_id=${book.shift.id}`}
-              >
-                Lanjut mesin lain
-              </Link>
-            </div>
-          )}
           <div className="page-heading">
             <div>
               <p className="section-label">
@@ -72,15 +59,7 @@ export default function Book() {
               <h1>{book.machine.name}</h1>
               <p className="muted">{book.photo_count} halaman logbook</p>
             </div>
-            {book.photo_count < limits.totalPhotos && (
-              <Link
-                to={`/logbooks/${id}/add`}
-                className="button button-primary"
-              >
-                <Icon name="plus" />
-                Tambah halaman
-              </Link>
-            )}
+            <Link to={`/machines/${book.machine.id}`} className="button button-primary">Tulis pesan mesin</Link>
           </div>
           <ShiftNavigation
             machine={book.machine.id}

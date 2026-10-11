@@ -54,7 +54,7 @@ export default function ShiftArchive() {
   if (state.book) return <Navigate to={`/logbooks/${state.book.id}`} replace />;
   return (
     <div className="page book-page">
-      <Link className="back-link" to={`/?machine_id=${machineId}`}>
+      <Link className="back-link" to={`/machines/${machineId}`}>
         Arsip {machine.name}
       </Link>
       <div className="page-heading">
@@ -77,9 +77,9 @@ export default function ShiftArchive() {
           <p>Logbook shift ini belum diunggah.</p>
           <Link
             className="button button-primary"
-            to={`/new?${queryString({ machine_id: machineId, date, shift_id: shiftId })}`}
+            to={`/machines/${machineId}`}
           >
-            Tambah logbook
+            Buka catatan mesin
           </Link>
         </section>
       )}

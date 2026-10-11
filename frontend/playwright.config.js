@@ -11,12 +11,6 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:5174",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: {
-      args: [
-        "--use-fake-ui-for-media-stream",
-        "--use-fake-device-for-media-stream",
-      ],
-    },
   },
   projects: [
     {

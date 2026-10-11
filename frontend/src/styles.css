@@ -734,8 +734,7 @@
   .login-bottom {
     margin-top: 4rem;
   }
-  .book-page,
-  .capture-page {
+  .book-page {
     padding-top: 1.6rem;
   }
   .book-workspace {
@@ -896,241 +895,6 @@
     width: auto;
     max-height: none;
   }
-  .capture-page {
-    max-width: 1160px;
-  }
-  .draft-label {
-    display: inline-flex;
-    border: 1px solid var(--control);
-    border-radius: 4px;
-    padding: 0.4rem 0.65rem;
-    color: var(--muted);
-    font-size: 0.74rem;
-    white-space: nowrap;
-  }
-  .entry-metadata,
-  .entry-photos {
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
-    padding: 1.8rem 2rem;
-    margin-bottom: 1.3rem;
-  }
-  .section-heading {
-    display: flex;
-    align-items: start;
-    gap: 1rem;
-    margin-bottom: 1.75rem;
-  }
-  .step-number {
-    color: var(--green);
-    font-size: 0.83rem;
-    padding-top: 0.12rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .section-heading h2 {
-    font-size: 1.05rem;
-  }
-  .section-heading p {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-top: 0.25rem;
-  }
-  .metadata-fields {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
-    gap: 1.25rem;
-  }
-  .existing-metadata {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem 1.5rem;
-    font-size: 0.88rem;
-  }
-  .photo-tally {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-  .photo-input-area {
-    background: #f7f8f2;
-    border: 1px dashed var(--control);
-    border-radius: 6px;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .capture-invitation {
-    display: flex;
-    flex-direction: column;
-    text-align: center;
-    align-items: center;
-    gap: 1rem;
-  }
-  .capture-invitation > svg {
-    color: var(--green);
-  }
-  .capture-invitation h3 {
-    font-size: 1rem;
-  }
-  .capture-invitation p {
-    font-size: 0.83rem;
-    color: var(--muted);
-    margin-top: 0.5rem;
-  }
-  .photo-input-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1.4rem;
-  }
-  .native-camera-button {
-    font-size: 0.75rem;
-    margin-top: 0.5rem;
-  }
-  .has-photos {
-    padding: 1.25rem;
-  }
-  .has-photos .capture-invitation {
-    flex-direction: row;
-    text-align: left;
-  }
-  .has-photos .capture-invitation > svg {
-    width: 25px;
-  }
-  .draft-photos {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-  .draft-photo {
-    min-width: 0;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .draft-photo-preview {
-    display: block;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    padding: 0.5rem;
-    border: 0;
-    background: #e8ebe2;
-  }
-  .draft-photo-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .draft-photo-caption {
-    padding: 0.75rem 0.7rem 0.3rem;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0.3rem;
-    font-size: 0.74rem;
-  }
-  .draft-photo-caption span {
-    color: var(--muted);
-  }
-  .draft-photo-actions {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 0.2rem 0.25rem;
-  }
-  .draft-photo-actions .icon-button {
-    min-width: 44px;
-  }
-  .upload-guidance {
-    color: var(--muted);
-    font-size: 0.73rem;
-    margin-top: 1.2rem;
-  }
-  .save-bar {
-    position: sticky;
-    bottom: 1rem;
-    z-index: 5;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.1rem 1.5rem;
-    background: #fff;
-    border: 1px solid var(--control);
-    border-radius: 8px;
-    box-shadow: 0 5px 22px #29332c0d;
-  }
-  .save-bar > div:first-child {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-  .save-bar strong {
-    font-size: 0.88rem;
-  }
-  .save-bar span {
-    font-size: 0.75rem;
-    color: var(--muted);
-  }
-  .draft-note {
-    text-align: center;
-    color: var(--muted);
-    margin: 1.2rem 0 0;
-    font-size: 0.74rem;
-  }
-  .upload-progress {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    width: 100%;
-  }
-  progress {
-    width: 100%;
-    height: 8px;
-    accent-color: var(--green);
-  }
-  .inline-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    margin-top: 1rem;
-  }
-  .camera-dialog {
-    width: min(850px, calc(100% - 2rem));
-  }
-  .camera-preview {
-    background: #1c2520;
-    min-height: 160px;
-    display: grid;
-    place-items: center;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .camera-preview video {
-    max-height: 55dvh;
-    width: 100%;
-    object-fit: contain;
-  }
-  .camera-preview .loading {
-    color: #f5f5ef;
-  }
-  .camera-status {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.75rem;
-    color: var(--muted);
-    font-size: 0.8rem;
-  }
-  .camera-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    justify-content: center;
-    margin-top: 1.5rem;
-  }
 }
 
 @layer responsive {
@@ -1178,9 +942,6 @@
     .book-workspace {
       grid-template-columns: minmax(0, 1fr) 220px;
       gap: 1.5rem;
-    }
-    .draft-photos {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
   @media (max-width: 800px) {
@@ -1241,12 +1002,6 @@
       grid-column: 1 / -1;
       padding-top: 1rem;
       border-top: 1px solid var(--line);
-    }
-    .metadata-fields {
-      grid-template-columns: 1fr 1fr;
-    }
-    .metadata-fields label:first-child {
-      grid-column: 1 / -1;
     }
   }
   @media (max-width: 580px) {
@@ -1415,8 +1170,7 @@
     .login-bottom {
       margin-top: 2rem;
     }
-    .book-page,
-    .capture-page {
+    .book-page {
       padding-top: 1rem;
     }
     .back-link {
@@ -1463,78 +1217,6 @@
       padding-top: 1rem;
       border-top: 1px solid var(--line);
     }
-    .draft-label {
-      font-size: 0.7rem;
-    }
-    .entry-metadata,
-    .entry-photos {
-      padding: 1.25rem 1rem;
-    }
-    .section-heading {
-      gap: 0.7rem;
-      margin-bottom: 1.3rem;
-    }
-    .section-heading p {
-      font-size: 0.75rem;
-    }
-    .section-heading h2 {
-      font-size: 0.96rem;
-    }
-    .photo-tally {
-      font-size: 0.72rem;
-    }
-    .metadata-fields {
-      gap: 1rem;
-    }
-    .metadata-fields label {
-      font-size: 0.78rem;
-    }
-    .metadata-fields input[type="date"] {
-      min-width: 0;
-    }
-    .photo-input-area {
-      padding: 1.4rem 0.75rem 0.75rem;
-    }
-    .photo-input-actions {
-      width: 100%;
-      gap: 0.6rem;
-    }
-    .photo-input-actions .button {
-      flex: 1;
-      padding: 0.75rem 0.5rem;
-      font-size: 0.78rem;
-      gap: 0.4rem;
-    }
-    .capture-invitation h3 {
-      font-size: 0.92rem;
-    }
-    .capture-invitation p {
-      font-size: 0.76rem;
-    }
-    .draft-photos {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.7rem;
-    }
-    .draft-photo-caption {
-      font-size: 0.71rem;
-    }
-    .draft-photo-actions .icon-button {
-      min-width: 44px;
-    }
-    .save-bar {
-      padding: 1rem;
-      bottom: max(0.5rem, env(safe-area-inset-bottom));
-    }
-    .save-bar > div:first-child {
-      width: 100%;
-    }
-    .save-button {
-      width: 100%;
-    }
-    .draft-note {
-      font-size: 0.7rem;
-      text-align: left;
-    }
     .dialog {
       padding: 1.1rem;
       width: calc(100% - 1.2rem);
@@ -1542,27 +1224,8 @@
     .dialog-actions {
       flex-direction: column-reverse;
     }
-    .camera-controls {
-      gap: 0.5rem;
-    }
-    .camera-controls .button {
-      font-size: 0.76rem;
-      padding: 0.7rem 0.75rem;
-    }
-    .camera-controls .button-primary {
-      flex-grow: 1;
-    }
-    .camera-controls .button:last-child {
-      width: 100%;
-    }
   }
   @media (max-width: 380px) {
-    .draft-photos {
-      grid-template-columns: 1fr;
-    }
-    .photo-input-actions {
-      flex-direction: column;
-    }
     .account-name {
       max-width: 80px;
     }

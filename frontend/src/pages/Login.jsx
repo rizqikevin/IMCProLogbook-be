@@ -58,11 +58,10 @@ export default function Login() {
           <h1>
             Logbook tersimpan.
             <br />
-            Shift berlanjut.
+            Catatan berlanjut.
           </h1>
           <p>
-            Simpan foto logbook mesin dan temukan kembali catatan yang Anda
-            butuhkan.
+            Tulis catatan, kirim foto, dan baca riwayat setiap mesin.
           </p>
         </div>
         <div className="login-register">
@@ -70,10 +69,10 @@ export default function Login() {
             01 <strong>Pilih mesin</strong>
           </span>
           <span>
-            02 <strong>Foto halamannya</strong>
+            02 <strong>Tulis catatan atau pilih foto</strong>
           </span>
           <span>
-            03 <strong>Simpan arsip</strong>
+            03 <strong>Kirim pesan</strong>
           </span>
         </div>
         <p className="login-footnote">Machine Logbook Archive</p>
