@@ -1,5 +1,26 @@
 # Verifikasi frontend
 
+## Pengambilan foto beruntun · 12 Oktober 2026
+
+- 13 unit test, build production, dan 24 E2E desktop/Pixel 7 lulus.
+- Kamera: beberapa jepretan tanpa tutup modal, review, hapus, kembali ke kamera,
+  galeri, Selesai, kirim, buka ulang, Escape, ganti kamera dan pembersihan stream
+  termasuk izin terlambat tercakup pengujian. Penolakan izin menyediakan galeri.
+- Dimensi frame 2880 × 1620 dipertahankan; galeri tidak diubah. Batas 20 foto
+  serta kontrol dalam viewport 320 × 568, 667 × 375 dan 1440 × 1000 diuji.
+- Smoke browser 390 × 844: ambil dua foto dari stream canvas, review pertama,
+  hapus lewat kontrol dialog, Selesai menyisakan satu lampiran, kirim berhasil
+  menampilkan satu foto pesan. Ukuran dokumen tetap 390 × 844. Screenshot diambil.
+- Hard gate PASS: interaksi kamera dan layout lulus suite; modal tetap menjaga
+  fokus/Escape. Tidak ditemukan exception JavaScript pada smoke; log memuat
+  request yang dibatalkan saat lifecycle development, bukan kegagalan kamera.
+- Purpose gate PASS: preview besar untuk membingkai objek, shutter bawah untuk
+  jangkauan tangan, strip foto untuk review tanpa meninggalkan sesi kamera.
+- Liveliness PASS: navy IMCPro dan dial 1/2/1 dipertahankan; hierarki berpusat
+  pada preview dan shutter tanpa kontrol filter/dekorasi tambahan.
+- Craftsmanship PASS: foto uji dikirim ke backend nyata; hanya media kamera
+  disimulasikan. Kamera fisik dan keyboard ponsel nyata belum diuji.
+
 ## Pencarian teks per mesin · 11 Oktober 2026
 
 - Backend integration PostgreSQL dengan race detector dan `go vet ./...` lulus.

@@ -218,14 +218,18 @@ test("submission stays with its machine during navigation and prevents double se
   expect(posts).toBe(1);
 });
 
-test("camera captures a real video frame and sends a rendered outgoing photo", async ({ page }) => {
-  await page.addInitScript(() => {
+async function mockCamera(page, { denied = false, deferred = false, width = 640, height = 480 } = {}) {
+  await page.addInitScript(({ denied, deferred, width, height }) => {
+    window.cameraTest = { streams: [], requests: [], pending: [] };
     Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
       configurable: true,
-      value: async () => {
+      value: async (constraints) => {
+        window.cameraTest.requests.push(constraints);
+        if (denied) throw new DOMException("Permission denied", "NotAllowedError");
+        if (deferred) await new Promise((resolve) => window.cameraTest.pending.push(resolve));
         const canvas = document.createElement("canvas");
-        canvas.width = 320;
-        canvas.height = 240;
+        canvas.width = width;
+        canvas.height = height;
         const context = canvas.getContext("2d");
         const paint = () => {
           context.fillStyle = "white";
@@ -240,29 +244,173 @@ test("camera captures a real video frame and sends a rendered outgoing photo", a
         const track = stream.getVideoTracks()[0];
         const stop = track.stop.bind(track);
         track.stop = () => { clearInterval(timer); stop(); };
+        window.cameraTest.streams.push(stream);
         return stream;
       },
     });
-  });
-  await login(page);
-  await choose(page);
+  }, { denied, deferred, width, height });
+}
+
+async function openCamera(page) {
   await page.getByRole("button", { name: "Ambil foto dari kamera", exact: true }).click();
-  const camera = page.getByRole("dialog", { name: "Foto halaman logbook" });
-  await expect(camera.locator("video")).toHaveJSProperty("videoWidth", 320);
-  await camera.getByRole("button", { name: "Ambil foto", exact: true }).click();
+  const camera = page.getByRole("dialog", { name: "Kamera", exact: true });
+  await expect(camera).toBeVisible();
+  return camera;
+}
+
+async function expectCameraStopped(page) {
+  await expect.poll(() => page.evaluate(() => window.cameraTest.streams.length)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.cameraTest.streams.every((stream) =>
+    stream.getTracks().every((track) => track.readyState === "ended")))).toBe(true);
+}
+
+test("camera captures multiple full-size frames, reviews and removes photos, then returns shared draft", async ({ page }) => {
+  await mockCamera(page, { width: 2880, height: 1620 });
+  await login(page); await choose(page);
+  const gallery = await photo(page);
+  await page.locator("#message-photos").setInputFiles(gallery);
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill("Draft kamera");
+  const gallerySource = await page.getByRole("img", { name: "Pratinjau foto 1", exact: true }).getAttribute("src");
+  const camera = await openCamera(page);
+  const shutter = camera.getByRole("button", { name: "Ambil foto", exact: true });
+  await expect(camera.locator("video")).toHaveJSProperty("videoWidth", 2880);
+  await expect(camera.locator("video")).toHaveJSProperty("videoHeight", 1620);
+  await expect(camera.locator("video")).toHaveCSS("object-fit", "contain");
+  for (const count of [2, 3]) {
+    await expect(shutter).toBeEnabled();
+    await shutter.click();
+    await expect(camera.getByRole("button", { name: `Selesai (${count} foto)`, exact: true })).toBeVisible();
+    await expect(camera.getByRole("button", { name: /^Lihat foto \d+$/ })).toHaveCount(count);
+  }
+  await camera.getByRole("button", { name: "Lihat foto 2", exact: true }).click();
+  await expect(camera.getByRole("button", { name: "Hapus foto 2", exact: true })).toBeVisible();
+  const capturedSource = await camera.getByRole("button", { name: "Lihat foto 2", exact: true }).locator("img").getAttribute("src");
+  expect(await page.evaluate(async (src) => {
+    const image = new Image();
+    image.src = src;
+    await image.decode();
+    return [image.naturalWidth, image.naturalHeight];
+  }, capturedSource)).toEqual([2880, 1620]);
+  await camera.getByRole("button", { name: "Kembali ke kamera", exact: true }).click();
+  await expect(shutter).toBeEnabled();
+  await camera.getByRole("button", { name: "Lihat foto 3", exact: true }).click();
+  await camera.getByRole("button", { name: "Hapus foto 3", exact: true }).click();
+  await expect(camera.getByRole("button", { name: /^Lihat foto \d+$/ })).toHaveCount(2);
+  await camera.getByRole("button", { name: "Selesai (2 foto)", exact: true }).click();
   await expect(camera).toHaveCount(0);
-  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toBeVisible();
+  await expectCameraStopped(page);
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue("Draft kamera");
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toHaveAttribute("src", gallerySource);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 2", exact: true })).toHaveAttribute("src", capturedSource);
   const message = await send(page);
-  expect(message.text).toBe("");
-  expect(message.photos).toHaveLength(1);
+  expect(message.text).toBe("Draft kamera");
+  expect(message.photos).toHaveLength(2);
+  expect(message.photos[0].sha256).toBe(createHash("sha256").update(gallery.buffer).digest("hex"));
   const outgoing = page.locator(".message-entry.message-own").last();
-  const image = outgoing.getByRole("button", { name: "Perbesar foto 1", exact: true }).getByRole("img");
+  const image = outgoing.getByRole("button", { name: "Perbesar foto 2", exact: true }).getByRole("img");
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
-  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: /^Pratinjau foto/ })).toHaveCount(0);
   await page.reload();
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
+});
+
+test("camera close and Escape retain captures; switching and reopening release old streams", async ({ page }) => {
+  await mockCamera(page);
+  await login(page); await choose(page);
+  let camera = await openCamera(page);
+  const shutter = camera.getByRole("button", { name: "Ambil foto", exact: true });
+  await expect(shutter).toBeEnabled();
+  await shutter.click();
+  await expect(camera.getByRole("button", { name: "Selesai (1 foto)", exact: true })).toBeVisible();
+  const beforeSwitch = await page.evaluate(() => window.cameraTest.streams.length);
+  await camera.getByRole("button", { name: "Ganti kamera", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.cameraTest.streams.length)).toBeGreaterThan(beforeSwitch);
+  await expect.poll(() => page.evaluate(() => window.cameraTest.streams.slice(0, -1).every((stream) =>
+    stream.getTracks().every((track) => track.readyState === "ended")))).toBe(true);
+  await expect(shutter).toBeEnabled();
+  await camera.getByRole("button", { name: "Tutup dialog", exact: true }).click();
+  await expect(camera).toHaveCount(0);
+  await expectCameraStopped(page);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toBeVisible();
+  camera = await openCamera(page);
+  await expect(camera.getByRole("button", { name: "Lihat foto 1", exact: true })).toBeVisible();
+  await expect(shutter).toBeEnabled();
+  await shutter.click();
+  await expect(camera.getByRole("button", { name: "Selesai (2 foto)", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(camera).toHaveCount(0);
+  await expectCameraStopped(page);
+  await expect(page.getByRole("img", { name: /^Pratinjau foto/ })).toHaveCount(2);
+  camera = await openCamera(page);
+  await expect(camera.getByRole("button", { name: /^Lihat foto \d+$/ })).toHaveCount(2);
+  await camera.getByRole("button", { name: "Selesai (2 foto)", exact: true }).click();
+  await expectCameraStopped(page);
+});
+
+test("denied camera permission still allows gallery selection into shared draft", async ({ page }) => {
+  await mockCamera(page, { denied: true });
+  await login(page); await choose(page);
+  const gallery = await photo(page);
+  const camera = await openCamera(page);
+  await expect(camera.getByRole("alert")).toBeVisible();
+  await expect(camera.getByRole("button", { name: "Ambil foto", exact: true })).toBeDisabled();
+  const chooser = page.waitForEvent("filechooser");
+  await camera.getByRole("button", { name: "Pilih dari galeri", exact: true }).click();
+  await (await chooser).setFiles(gallery);
+  await expect(camera.getByRole("button", { name: "Selesai (1 foto)", exact: true })).toBeVisible();
+  await camera.getByRole("button", { name: "Selesai (1 foto)", exact: true }).click();
+  await expect(camera).toHaveCount(0);
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1", exact: true })).toBeVisible();
+});
+
+test("camera shares twenty-photo limit and keeps shutter visible without vertical dialog scrolling", async ({ page }) => {
+  await mockCamera(page);
+  await login(page); await choose(page);
+  const gallery = await photo(page);
+  await page.locator("#message-photos").setInputFiles(Array.from({ length: 19 }, (_, index) => ({ ...gallery, name: `gallery-${index}.png` })));
+  const camera = await openCamera(page);
+  const shutter = camera.getByRole("button", { name: "Ambil foto", exact: true });
+  await expect(shutter).toBeEnabled();
+  await shutter.click();
+  await expect(camera.getByRole("button", { name: /^Lihat foto \d+$/ })).toHaveCount(20);
+  await expect(shutter).toBeDisabled();
+  await expect(camera.getByRole("button", { name: "Pilih dari galeri", exact: true })).toBeDisabled();
+  for (const viewport of [{ width: 320, height: 568 }, { width: 667, height: 375 }, { width: 1440, height: 1000 }]) {
+    await page.setViewportSize(viewport);
+    await expect(shutter).toBeInViewport({ ratio: 1 });
+    await expect(camera.getByRole("button", { name: "Selesai (20 foto)", exact: true })).toBeInViewport({ ratio: 1 });
+    await expect.poll(() => camera.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    expect(await camera.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= innerHeight + 1 && box.left >= 0 && box.right <= innerWidth + 1;
+    })).toBe(true);
+  }
+  await camera.getByRole("button", { name: "Lihat foto 20", exact: true }).click();
+  await camera.getByRole("button", { name: "Hapus foto 20", exact: true }).click();
+  await expect(camera.getByRole("button", { name: /^Lihat foto \d+$/ })).toHaveCount(19);
+  const back = camera.getByRole("button", { name: "Kembali ke kamera", exact: true });
+  if (await back.isVisible()) await back.click();
+  await expect(shutter).toBeEnabled();
+  await shutter.click();
+  await expect(camera.getByRole("button", { name: "Selesai (20 foto)", exact: true })).toBeVisible();
+  await camera.getByRole("button", { name: "Selesai (20 foto)", exact: true }).click();
+  await expect(page.getByRole("img", { name: /^Pratinjau foto/ })).toHaveCount(20);
+  await expectCameraStopped(page);
+});
+
+test("camera stops streams returned after permission resolves on a closed dialog", async ({ page }) => {
+  await mockCamera(page, { deferred: true });
+  await login(page); await choose(page);
+  const camera = await openCamera(page);
+  await expect.poll(() => page.evaluate(() => window.cameraTest.pending.length)).toBeGreaterThan(0);
+  await expect(camera.getByRole("button", { name: "Ambil foto", exact: true })).toBeDisabled();
+  await camera.getByRole("button", { name: "Tutup dialog", exact: true }).click();
+  await expect(camera).toHaveCount(0);
+  await page.evaluate(() => window.cameraTest.pending.splice(0).forEach((resolve) => resolve()));
+  await expectCameraStopped(page);
+  await expect(page.getByRole("img", { name: /^Pratinjau foto/ })).toHaveCount(0);
 });
 
 test("long chat scrolls its timeline while header and composer stay in viewport", async ({ page }) => {

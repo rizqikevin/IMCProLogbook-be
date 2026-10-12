@@ -92,6 +92,32 @@ so short chat lines do not stretch across the monitor. Long pasted tokens wrap a
 multiline whitespace remains visible. White controls and pale navy own-message bubbles
 separate actions from content without shadows, decoration, or new assets.
 
+## Camera-first capture
+
+Reading: repeated machine evidence capture for factory operators, retaining industrial
+light, system type, and ENERGY 1 / RHYTHM 2 / MOTION 1.
+
+The live view gets the flexible center of a viewport-fit dialog; a navy circular
+shutter remains bottom-center within thumb reach. The light control surface keeps
+the existing conversation identity, while the dark viewfinder separates photographs
+from controls. Contain-fit preview and review show the complete frame, not a crop.
+Canvas capture uses the camera stream's original pixel dimensions.
+
+Close, gallery fallback, and camera switch remain visible above the viewfinder.
+Captured photos join the existing unsent draft immediately without closing the camera.
+The count and horizontal thumbnail strip confirm each capture; selecting a thumbnail
+opens full-frame review with removal and return controls. Remove then capture again
+retakes a photo without losing other attachments. Selesai returns to chat; only Kirim
+pesan uploads. Close and Escape also preserve completed captures.
+
+Phones use the full dynamic viewport with safe-area padding. Larger portrait screens
+use a bounded dialog; short landscape screens put controls beside the viewfinder.
+Only thumbnails scroll horizontally; the shutter never sits below a scrolling page.
+Controls retain 44px targets, native dialog focus containment, visible focus, and
+text feedback. No animation, new assets, filters, zoom, or dependencies are introduced.
+Permission failures retain retry and gallery access; streams stop on switch, close,
+unmount, timeout, and late permission completion.
+
 ## Verification handoff
 
 Conversation browser tests cover text/photos/both, actual camera capture and upload,
@@ -100,5 +126,8 @@ own-author alignment, date groups, timeline-only scrolling, axe, and responsive 
 Search coverage adds full-history matching, machine isolation, literal text,
 matching photos, result pagination, URL navigation, stale requests, search errors,
 empty results, draft preservation, and sends that do not match the active query.
+Camera cases cover repeated capture, full-size output, shared selection and twenty-photo
+limit, review/removal, done/close/reopen, permission denial with gallery fallback,
+stream cleanup (including late permission), and portrait/landscape shutter visibility.
 Runtime, contrast, zoom, and device checks must be performed by the main verifier;
 no visual or accessibility pass is claimed solely from implementation.

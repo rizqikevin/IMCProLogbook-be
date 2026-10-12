@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, ErrorNotice, Icon, Loading } from "./common";
+import { Dialog, Icon, Loading } from "./common";
 
-export default function Camera({ onClose, onCapture, photos, maximum }) {
+export default function Camera({ onClose, onCapture, onRemove, photos, maximum }) {
   const count = photos.length;
   const video = useRef(null);
   const thumbnails = useRef(null);
+  const picker = useRef(null);
+  const mounted = useRef(false);
+  const capturing = useRef(false);
+  const shutter = useRef(null);
+  const [selected, setSelected] = useState(null);
+  const [captureError, setCaptureError] = useState(null);
+  const reviewed = photos.find((photo) => photo.url === selected);
+  const reviewedIndex = photos.indexOf(reviewed);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,8 +54,12 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
       setReady(false);
       setError(
         err.name === "NotAllowedError"
-          ? "Izin kamera ditolak. Izinkan akses kamera di pengaturan peramban."
-          : err.message || "Gagal membuka kamera.",
+          ? "Izin kamera ditolak. Izinkan kamera di pengaturan peramban atau pilih foto dari galeri."
+          : err.name === "NotFoundError"
+            ? "Kamera tidak ditemukan. Hubungkan kamera atau pilih foto dari galeri."
+            : err.name === "NotReadableError"
+              ? "Kamera sedang dipakai. Tutup aplikasi kamera lain lalu coba lagi."
+              : err.message || "Gagal membuka kamera. Coba lagi atau pilih foto dari galeri.",
       );
     }
 
@@ -104,17 +120,14 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
   }, [facing, attempt]);
 
   async function capture() {
-    if (!ready || busy || count >= maximum) return;
+    if (!ready || capturing.current || count >= maximum) return;
+    capturing.current = true;
     setBusy(true);
-    setError(null);
+    setCaptureError(null);
     try {
       const canvas = document.createElement("canvas");
-      const ratio = Math.min(
-        1,
-        2560 / Math.max(video.current.videoWidth, video.current.videoHeight),
-      );
-      canvas.width = Math.round(video.current.videoWidth * ratio);
-      canvas.height = Math.round(video.current.videoHeight * ratio);
+      canvas.width = video.current.videoWidth;
+      canvas.height = video.current.videoHeight;
       if (!canvas.width || !canvas.height)
         throw new Error("Tunggu sampai tampilan kamera siap.");
       canvas
@@ -123,88 +136,80 @@ export default function Camera({ onClose, onCapture, photos, maximum }) {
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", 0.94),
       );
+      if (!mounted.current) return;
       if (!blob)
         throw new Error("Foto belum berhasil diambil. Silakan coba lagi.");
       await onCapture([
         new File([blob], `logbook-${Date.now()}.jpg`, { type: "image/jpeg" }),
       ]);
     } catch (error) {
-      setError(error.message);
+      if (mounted.current) setCaptureError(error.message);
     } finally {
-      setBusy(false);
+      capturing.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
+  function pickPhotos(event) {
+    const incoming = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!incoming.length) return;
+    try {
+      onCapture(incoming);
+      setCaptureError(null);
+    } catch (error) {
+      setCaptureError(error.message);
+    }
+  }
+
+  function returnToCamera() {
+    setSelected(null);
+    requestAnimationFrame(() => shutter.current?.focus());
+  }
+
   return (
-    <Dialog
-      title="Foto halaman logbook"
-      className="camera-dialog"
-      onClose={onClose}
-      dismissible={!busy}
-    >
-      <p className="muted">
-        Pastikan seluruh halaman masuk bingkai dan tulisan terbaca.
-      </p>
-      <ErrorNotice
-        error={error}
-        onRetry={() => setAttempt((value) => value + 1)}
-      />
+    <Dialog title="Kamera" className="camera-dialog" onClose={onClose}>
+      <div className="camera-toolbar">
+        <input id="camera-photos" ref={picker} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={pickPhotos} />
+        <button type="button" className="button button-outline" onClick={() => picker.current.click()} disabled={busy || count >= maximum}>Pilih dari galeri</button>
+        <button type="button" className="button button-outline" disabled={busy} onClick={() => {
+          setReady(false);
+          setSelected(null);
+          setFacing((value) => value === "environment" ? "user" : "environment");
+        }}>Ganti kamera</button>
+      </div>
       <div className="camera-preview">
-        <video ref={video} muted playsInline aria-label="Pratinjau kamera" />
-        {!ready && !error && <Loading>Membuka kamera…</Loading>}
+        <video ref={video} muted playsInline aria-label="Pratinjau kamera" className={reviewed ? "camera-video-hidden" : ""} />
+        {reviewed ? <img className="camera-review" src={reviewed.url} alt={`Foto pilihan ${reviewedIndex + 1}`} /> : error ? (
+          <div className="camera-feedback" role="alert">
+            <p>{error}</p>
+            <button type="button" className="button button-outline" onClick={() => setAttempt((value) => value + 1)}>Coba lagi</button>
+          </div>
+        ) : !ready && <Loading>Membuka kamera…</Loading>}
       </div>
-      <div className="camera-status" role="status">
-        <span>{count} foto dipilih</span>
-        <span>Belum diunggah</span>
+      <div className="camera-selection">
+        <div className="camera-status" role="status">
+          <span>{count}/{maximum} foto dipilih</span>
+          <span>{count >= maximum ? "Batas foto tercapai" : "Belum dikirim"}</span>
+        </div>
+        {captureError && <p className="camera-capture-error" role="alert">{captureError}</p>}
+        {count > 0 && <ol className="camera-thumbnails" aria-label="Foto yang sudah dipilih" ref={thumbnails}>
+          {photos.map((photo, index) => <li key={photo.url}>
+            <button type="button" disabled={busy} aria-label={`Lihat foto ${index + 1}`} aria-pressed={selected === photo.url} onClick={() => setSelected(photo.url)}>
+              <img src={photo.url} alt="" />
+              <span>{index + 1}</span>
+            </button>
+          </li>)}
+        </ol>}
       </div>
-      {count > 0 && (
-        <ol
-          className="camera-thumbnails"
-          aria-label="Foto yang sudah dipilih"
-          ref={thumbnails}
-          tabIndex={0}
-        >
-          {photos.map((photo, index) => (
-            <li key={photo.url}>
-              <img src={photo.url} alt={`Foto pilihan ${index + 1}`} />
-              <span>Foto {index + 1}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      <div className="camera-controls">
-        <button
-          type="button"
-          className="button button-outline"
-          onClick={() =>
-            setFacing((value) =>
-              value === "environment" ? "user" : "environment",
-            )
-          }
-          disabled={busy}
-        >
-          Ganti kamera
-        </button>
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={capture}
-          disabled={!ready || busy || count >= maximum}
-        >
-          <Icon name="camera" />
-          {busy
-            ? "Menyimpan foto…"
-            : count >= maximum
-              ? "Batas foto tercapai"
-              : "Ambil foto"}
-        </button>
-        <button
-          type="button"
-          className="button button-outline"
-          onClick={onClose}
-          disabled={busy}
-        >
-          Selesai memotret
-        </button>
+      <div className={`camera-controls${reviewed ? " camera-controls-review" : ""}`}>
+        {reviewed ? <>
+          <button type="button" className="button button-outline" onClick={() => { onRemove(reviewed); returnToCamera(); }} aria-label={`Hapus foto ${reviewedIndex + 1}`}>Hapus foto</button>
+          <button type="button" className="button button-outline" onClick={returnToCamera}>Kembali ke kamera</button>
+        </> : <button ref={shutter} type="button" className="camera-shutter" onClick={capture} disabled={!ready || busy || count >= maximum} aria-label="Ambil foto" aria-busy={busy}>
+          <Icon name="camera" size={30} />
+          <span>{busy ? "Menyimpan…" : "Ambil foto"}</span>
+        </button>}
+        <button type="button" className="button button-primary camera-done" onClick={onClose} disabled={busy}>Selesai{count > 0 ? ` (${count} foto)` : ""}</button>
       </div>
     </Dialog>
   );

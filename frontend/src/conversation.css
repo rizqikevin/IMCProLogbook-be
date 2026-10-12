@@ -84,3 +84,62 @@
     .composer-retry p { font-size: 0.7rem; }
   }
 }
+
+@layer responsive {
+  .dialog.camera-dialog {
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: 100dvh;
+    margin: auto;
+    padding: max(0.5rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    background: var(--paper, #f8f9fb);
+    box-shadow: none;
+  }
+  .camera-dialog[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 0.5rem; }
+  .camera-dialog .dialog-heading { margin: 0; min-height: 44px; }
+  .camera-dialog .dialog-heading h2 { font-size: 1rem; }
+  .camera-toolbar { display: flex; justify-content: space-between; gap: 0.5rem; }
+  .camera-toolbar .button { min-height: 44px; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+  .camera-preview { position: relative; min-height: 0; min-width: 0; background: #111820; border-radius: 6px; }
+  .camera-preview video, .camera-review { width: 100%; height: 100%; object-fit: contain; position: absolute; inset: 0; }
+  .camera-video-hidden { visibility: hidden; }
+  .camera-preview .loading, .camera-feedback { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.75rem; padding: 1rem; color: #fff; text-align: center; overflow-y: auto; }
+  .camera-feedback p { max-width: 32rem; font-size: 0.9rem; }
+  .camera-feedback .button { background: #fff; color: #172638; flex-shrink: 0; }
+  .camera-selection { min-width: 0; }
+  .camera-status { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; padding-block: 0.25rem; }
+  .camera-capture-error { color: #8b1d1d; font-size: 0.8rem; max-height: 3.5rem; overflow-y: auto; }
+  .camera-thumbnails { display: flex; gap: 0.5rem; padding: 4px; overflow-x: auto; scrollbar-width: thin; }
+  .camera-thumbnails li { flex: 0 0 60px; }
+  .camera-thumbnails button { position: relative; display: block; width: 60px; height: 60px; padding: 0; border: 2px solid #657487; border-radius: 4px; background: #111820; }
+  .camera-thumbnails button[aria-pressed="true"] { border: 3px solid #fff; outline: 2px solid #172f4f; }
+  .camera-thumbnails img { width: 100%; height: 100%; object-fit: contain; }
+  .camera-thumbnails span { position: absolute; bottom: 0; right: 0; padding: 0 0.3rem; background: #172638; color: #fff; font-size: 0.75rem; }
+  .camera-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.5rem; min-height: 82px; }
+  .camera-shutter { grid-column: 2; width: 82px; height: 82px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem; border-radius: 50%; border: 4px solid #fff; outline: 2px solid #172f4f; background: #172f4f; color: #fff; font-size: 0.7rem; }
+  .camera-shutter:active:not(:disabled) { background: #294e79; }
+  .camera-shutter:disabled { opacity: 0.5; cursor: not-allowed; }
+  .camera-done { grid-column: 3; justify-self: end; min-height: 48px; padding: 0.5rem; font-size: 0.8rem; }
+  .camera-controls-review { grid-template-columns: 1fr 1fr; }
+  .camera-controls-review .button { min-height: 44px; padding: 0.5rem; font-size: 0.8rem; }
+  .camera-controls-review .camera-done { grid-column: 1 / -1; width: 100%; }
+  .camera-dialog button:focus-visible { outline: 3px solid #a85408; outline-offset: 3px; }
+  @media (min-width: 600px) and (min-height: 501px) {
+    .dialog.camera-dialog { width: min(960px, calc(100% - 2rem)); height: calc(100dvh - 2rem); max-height: 980px; border-radius: 10px; padding: 1rem; }
+    .camera-controls-review { grid-template-columns: 1fr 1fr 1fr; }
+    .camera-controls-review .camera-done { grid-column: 3; width: auto; }
+  }
+  @media (max-height: 500px) and (min-width: 520px) {
+    .camera-dialog[open] { grid-template-columns: minmax(0, 1fr) 260px; grid-template-rows: 44px auto minmax(0, 1fr) auto; column-gap: 0.75rem; }
+    .camera-dialog .dialog-heading { grid-column: 1 / -1; }
+    .camera-preview { grid-column: 1; grid-row: 2 / 5; }
+    .camera-toolbar { grid-column: 2; grid-row: 2; }
+    .camera-toolbar .button { padding-inline: 0.4rem; font-size: 0.75rem; }
+    .camera-selection { grid-column: 2; grid-row: 3; align-self: end; }
+    .camera-controls { grid-column: 2; grid-row: 4; }
+    .camera-controls-review { gap: 0.25rem; }
+  }
+}

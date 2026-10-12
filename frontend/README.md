@@ -39,6 +39,19 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 7. Tekan **Cari pesan**, isi teks, lalu tekan **Cari** atau Enter. Pencarian mencakup seluruh riwayat teks mesin ini, bukan hanya pesan yang sudah dimuat. **Muat hasil sebelumnya** membuka kecocokan yang lebih lama.
 8. **Reset**, **Tutup pencarian**, atau Escape mengembalikan riwayat lengkap. Kata pencarian yang sudah dikirim tersimpan pada URL `?q=`, sehingga reload dan tombol Back/Forward memulihkan filter. Mengetik saja tidak mengubah hasil. Draft pesan dan foto tidak berubah saat mencari.
 
+**Ambil foto dari kamera** membuka pratinjau dengan tombol **Ambil foto** tetap
+terjangkau. Ambil beberapa foto tanpa membuka ulang kamera. Jumlah dan thumbnail
+mencakup foto galeri yang sudah dipilih, dengan batas bersama 20 foto. Tekan thumbnail
+untuk memeriksa seluruh foto; **Hapus foto**, lalu potret lagi untuk menggantinya.
+**Selesai** kembali ke chat. Tutup atau Escape juga mempertahankan foto yang selesai
+diambil. Foto belum diunggah sampai **Kirim pesan** ditekan.
+
+**Ganti kamera** beralih depan/belakang. Jika izin ditolak, izinkan kamera melalui
+pengaturan peramban lalu **Coba lagi**, atau gunakan **Pilih dari galeri**. Menutup
+kamera atau berganti kamera menghentikan stream, termasuk izin yang baru selesai
+setelah dialog ditutup. Pratinjau tidak dipotong; foto kamera memakai dimensi asli
+stream dan format JPEG, tanpa pengecilan ke batas 2560 piksel.
+
 Teks ditampilkan sebagai teks biasa, bukan HTML atau Markdown. Baris baru, spasi,
 dan tab tetap disimpan. Satu kiriman menjadi satu pesan; tidak ada parser WhatsApp,
 impor, sinkronisasi realtime, atau edit pesan.
@@ -146,6 +159,9 @@ mesin, kegagalan jaringan, loading/error/empty, axe, dan overflow desktop/ponsel
 Kasus pencarian mencakup kecocokan di luar halaman awal, pagination hasil,
 isolasi mesin, literal `%`/`_`, foto, query URL/reload/Back/Forward, pembatalan
 request lama, validasi panjang, hasil kosong, retry, dan kiriman di luar filter.
+Kasus kamera mencakup beberapa jepretan, dimensi asli, pemilihan galeri, pemeriksaan
+dan penghapusan, batas 20 foto, selesai/tutup/buka ulang, penolakan izin, pelepasan
+stream terlambat, serta tombol rana dalam viewport portrait dan landscape.
 
 Desain disepakati dalam `DESIGN.md`. Pengujian perangkat Android/iOS, keyboard
 ponsel, dan zoom 200% tetap diperlukan sebelum deployment.

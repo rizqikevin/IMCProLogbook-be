@@ -171,7 +171,6 @@ function MachineConversation({ machine }) {
     setSelectionError(error);
     if (error) throw new Error(error);
     update(machineId, { photos: [...draft.photos, ...incoming.map(preview)], error: null });
-    setCameraOpen(false);
   }
   function choosePhotos(event) {
     const incoming = Array.from(event.target.files || []);
@@ -263,7 +262,7 @@ function MachineConversation({ machine }) {
         <div className="composer-footnote"><p id="message-help">{draft.sending ? "Mengirim pesan…" : draft.photos.length ? `${draft.photos.length}/20 foto · Maks. 10 MB/foto` : "Teks, foto, atau keduanya"}</p><span role="status">{draft.sent ? "Pesan terkirim." : count > textLimit - 1000 ? `${count.toLocaleString("id-ID")}/${textLimit.toLocaleString("id-ID")}` : ""}</span></div>
         <span className="visually-hidden">Foto JPG, PNG, WebP. Maksimal 20 foto, 10 MB per foto. Draft tetap ada saat berpindah mesin. Menutup atau memuat ulang tab menghapus draft.</span>
       </form>
-      {cameraOpen && <Camera onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} photos={draft.photos} maximum={20} />}
+      {cameraOpen && <Camera onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} onRemove={(photo) => { release(photo); update(machineId, { photos: draft.photos.filter((item) => item !== photo) }); setSelectionError(""); }} photos={draft.photos} maximum={20} />}
     </div>
   );
 }
