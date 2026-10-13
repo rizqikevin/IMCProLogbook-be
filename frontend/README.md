@@ -49,8 +49,10 @@ diambil. Foto belum diunggah sampai **Kirim pesan** ditekan.
 **Ganti kamera** beralih depan/belakang. Jika izin ditolak, izinkan kamera melalui
 pengaturan peramban lalu **Coba lagi**, atau gunakan **Pilih dari galeri**. Menutup
 kamera atau berganti kamera menghentikan stream, termasuk izin yang baru selesai
-setelah dialog ditutup. Pratinjau tidak dipotong; foto kamera memakai dimensi asli
-stream dan format JPEG, tanpa pengecilan ke batas 2560 piksel.
+setelah dialog ditutup. Pratinjau tidak dipotong. Kamera meminta resolusi ideal
+3840×2160; peramban memilih resolusi yang tersedia bila perangkat tidak mendukungnya.
+Foto memakai dimensi asli stream dan JPEG kualitas 94%, tanpa pengecilan atau
+pembesaran paksa. Ketajaman tetap bergantung pada fokus, cahaya, dan kemampuan kamera.
 
 Teks ditampilkan sebagai teks biasa, bukan HTML atau Markdown. Baris baru, spasi,
 dan tab tetap disimpan. Satu kiriman menjadi satu pesan; tidak ada parser WhatsApp,

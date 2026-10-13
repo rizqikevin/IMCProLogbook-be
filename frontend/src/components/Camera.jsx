@@ -91,7 +91,11 @@ export default function Camera({ onClose, onCapture, onRemove, photos, maximum }
       );
       try {
         const acquired = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing },
+          video: {
+            facingMode: facing,
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
+          },
           audio: false,
         });
         // Permission may resolve after timeout, camera switch, or dialog close.
