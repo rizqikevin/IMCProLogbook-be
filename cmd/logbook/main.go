@@ -98,7 +98,7 @@ func run(logger *slog.Logger) error {
 		store = local
 	} else {
 		startupCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		store, err = storage.NewS3(startupCtx, storage.S3Config{Bucket: cfg.S3Bucket, Region: cfg.S3Region, Endpoint: cfg.S3Endpoint, PathStyle: cfg.S3PathStyle})
+		store, err = storage.NewS3(startupCtx, storage.S3Config{Bucket: cfg.S3Bucket, Region: cfg.S3Region, Endpoint: cfg.S3Endpoint, PathStyle: cfg.S3PathStyle, KeyPrefix: cfg.S3KeyPrefix})
 		cancel()
 		if err != nil {
 			return err

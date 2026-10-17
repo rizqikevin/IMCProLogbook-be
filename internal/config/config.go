@@ -21,6 +21,7 @@ type Config struct {
 	S3Region             string
 	S3Endpoint           string
 	S3PathStyle          bool
+	S3KeyPrefix          string
 	AllowedOrigins       []string
 	SessionTTL           time.Duration
 	RequestTimeout       time.Duration
@@ -43,6 +44,7 @@ func Load() (Config, error) {
 		S3Bucket:         os.Getenv("S3_BUCKET"),
 		S3Region:         value("AWS_REGION", "us-east-1"),
 		S3Endpoint:       os.Getenv("S3_ENDPOINT"),
+		S3KeyPrefix:      os.Getenv("S3_KEY_PREFIX"),
 	}
 	var err error
 	readInt := func(key string, fallback, min, max int64) int64 {

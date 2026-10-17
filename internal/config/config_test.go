@@ -7,7 +7,7 @@ import (
 
 func baseEnv(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"APP_ENV", "HTTP_ADDR", "DATABASE_URL", "DATABASE_MAX_CONNS", "STORAGE_DRIVER", "LOCAL_STORAGE_PATH", "S3_BUCKET", "AWS_REGION", "S3_ENDPOINT", "S3_PATH_STYLE", "CORS_ALLOWED_ORIGINS", "SESSION_TTL", "REQUEST_TIMEOUT", "SHUTDOWN_TIMEOUT", "MAX_REQUEST_BYTES", "MAX_PHOTO_BYTES", "MAX_IMAGE_PIXELS", "MAX_PHOTOS_PER_UPLOAD", "MAX_PHOTOS_PER_LOGBOOK", "MAX_CONCURRENT_UPLOADS"} {
+	for _, key := range []string{"APP_ENV", "HTTP_ADDR", "DATABASE_URL", "DATABASE_MAX_CONNS", "STORAGE_DRIVER", "LOCAL_STORAGE_PATH", "S3_BUCKET", "AWS_REGION", "S3_ENDPOINT", "S3_PATH_STYLE", "S3_KEY_PREFIX", "CORS_ALLOWED_ORIGINS", "SESSION_TTL", "REQUEST_TIMEOUT", "SHUTDOWN_TIMEOUT", "MAX_REQUEST_BYTES", "MAX_PHOTO_BYTES", "MAX_IMAGE_PIXELS", "MAX_PHOTOS_PER_UPLOAD", "MAX_PHOTOS_PER_LOGBOOK", "MAX_CONCURRENT_UPLOADS"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("DATABASE_URL", "postgres://localhost/logbook")
@@ -19,7 +19,7 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.MaxRequestBytes != 100<<20 || c.MaxPhotoBytes != 10<<20 || c.StorageDriver != "local" || c.MaxConcurrentUploads != 4 {
+	if c.MaxRequestBytes != 100<<20 || c.MaxPhotoBytes != 10<<20 || c.StorageDriver != "local" || c.S3KeyPrefix != "" || c.MaxConcurrentUploads != 4 {
 		t.Fatalf("unexpected defaults: %+v", c)
 	}
 }
@@ -67,5 +67,20 @@ func TestProductionLocalStorage(t *testing.T) {
 	}
 	if c.StorageDriver != "local" || c.LocalStoragePath != "/app/data/uploads" {
 		t.Fatal("local storage configuration not preserved")
+	}
+}
+
+func TestLoadS3KeyPrefix(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("STORAGE_DRIVER", "s3")
+	t.Setenv("S3_BUCKET", "imcp-logbook")
+	t.Setenv("AWS_REGION", "auto")
+	t.Setenv("S3_KEY_PREFIX", "archieve/")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.S3KeyPrefix != "archieve/" || c.S3Region != "auto" {
+		t.Fatalf("unexpected S3 configuration: %+v", c)
 	}
 }

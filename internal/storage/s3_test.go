@@ -18,6 +18,11 @@ import (
 
 func newTestS3(t *testing.T, handler http.HandlerFunc) (*S3, string) {
 	t.Helper()
+	return newTestS3WithPrefix(t, handler, "")
+}
+
+func newTestS3WithPrefix(t *testing.T, handler http.HandlerFunc, prefix string) (*S3, string) {
+	t.Helper()
 	directory := t.TempDir()
 	t.Setenv("AWS_ACCESS_KEY_ID", "test-access-key")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
@@ -28,7 +33,7 @@ func newTestS3(t *testing.T, handler http.HandlerFunc) (*S3, string) {
 	t.Setenv("TMPDIR", directory)
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	store, err := NewS3(context.Background(), S3Config{Bucket: "logbooks", Region: "us-east-1", Endpoint: server.URL, PathStyle: true})
+	store, err := NewS3(context.Background(), S3Config{Bucket: "logbooks", Region: "us-east-1", Endpoint: server.URL, PathStyle: true, KeyPrefix: prefix})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,8 +41,21 @@ func newTestS3(t *testing.T, handler http.HandlerFunc) (*S3, string) {
 }
 
 func TestS3RoundTripAndPrivateUpload(t *testing.T) {
+	for _, prefix := range []string{"", "archieve", "archieve/", "photos/archieve.v1/"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			testS3RoundTrip(t, prefix)
+		})
+	}
+}
+
+func testS3RoundTrip(t *testing.T, prefix string) {
+	t.Helper()
+	objectPrefix := prefix
+	if objectPrefix != "" && !strings.HasSuffix(objectPrefix, "/") {
+		objectPrefix += "/"
+	}
 	var object []byte
-	store, directory := newTestS3(t, func(w http.ResponseWriter, r *http.Request) {
+	store, directory := newTestS3WithPrefix(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") == "" {
 			t.Error("request is not signed")
 		}
@@ -48,7 +66,7 @@ func TestS3RoundTripAndPrivateUpload(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		if r.URL.Path != "/logbooks/"+testKey {
+		if r.URL.Path != "/logbooks/"+objectPrefix+testKey {
 			t.Errorf("object path = %s", r.URL.Path)
 		}
 		switch r.Method {
@@ -80,7 +98,7 @@ func TestS3RoundTripAndPrivateUpload(t *testing.T) {
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
-	})
+	}, prefix)
 	ctx := context.Background()
 	if err := store.Check(ctx); err != nil {
 		t.Fatal(err)
@@ -105,15 +123,38 @@ func TestS3RoundTripAndPrivateUpload(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if _, err := store.Open(ctx, testKey); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted object = %v", err)
+	}
 	assertS3BufferRemoved(t, directory)
 }
 
+func TestS3RejectsMalformedPrefix(t *testing.T) {
+	for _, prefix := range []string{"/", "/archieve", "../archieve", "archieve/..", "./archieve", "archieve/./photos", "archieve//photos", "archieve//", `C:\photos`, `archieve\photos`, " archieve", "archieve ", "archieve\n", "archieve/%2e%2e", "archieve?query", "archieve#fragment"} {
+		t.Run(prefix, func(t *testing.T) {
+			store, err := NewS3(context.Background(), S3Config{Bucket: "logbooks", Region: "auto", KeyPrefix: prefix})
+			if err == nil || store != nil {
+				t.Fatalf("NewS3 prefix %q = %v, %v", prefix, store, err)
+			}
+		})
+	}
+}
+
 func TestS3RejectsInvalidObjectBeforeSending(t *testing.T) {
+	for _, prefix := range []string{"", "archieve/"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			testS3RejectsInvalidObject(t, prefix)
+		})
+	}
+}
+
+func testS3RejectsInvalidObject(t *testing.T, prefix string) {
+	t.Helper()
 	var requests atomic.Int32
-	store, directory := newTestS3(t, func(w http.ResponseWriter, _ *http.Request) {
+	store, directory := newTestS3WithPrefix(t, func(w http.ResponseWriter, _ *http.Request) {
 		requests.Add(1)
 		w.WriteHeader(http.StatusOK)
-	})
+	}, prefix)
 	ctx := context.Background()
 	for _, size := range []int64{0, 2, 9} {
 		if err := store.Put(ctx, testKey, strings.NewReader("image"), size, "image/jpeg"); !errors.Is(err, ErrSizeMismatch) {
@@ -155,11 +196,20 @@ func TestS3DeadlineAndBufferCleanup(t *testing.T) {
 }
 
 func TestS3PermissionErrorIsNotMissing(t *testing.T) {
-	store, _ := newTestS3(t, func(w http.ResponseWriter, _ *http.Request) {
+	for _, prefix := range []string{"", "archieve/"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			testS3PermissionError(t, prefix)
+		})
+	}
+}
+
+func testS3PermissionError(t *testing.T, prefix string) {
+	t.Helper()
+	store, _ := newTestS3WithPrefix(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = io.WriteString(w, `<Error><Code>AccessDenied</Code><Message>Denied</Message></Error>`)
-	})
+	}, prefix)
 	if _, err := store.Open(context.Background(), testKey); err == nil || errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("permission error = %v", err)
 	}

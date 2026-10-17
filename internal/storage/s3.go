@@ -24,16 +24,32 @@ type S3Config struct {
 	Region    string
 	Endpoint  string
 	PathStyle bool
+	KeyPrefix string
 }
 
 type S3 struct {
-	client *s3.Client
-	bucket string
+	client    *s3.Client
+	bucket    string
+	keyPrefix string
 }
 
 func NewS3(ctx context.Context, cfg S3Config) (*S3, error) {
 	if strings.TrimSpace(cfg.Bucket) == "" {
 		return nil, errors.New("S3 bucket is required")
+	}
+	prefix := strings.TrimSuffix(cfg.KeyPrefix, "/")
+	if cfg.KeyPrefix != "" {
+		for _, segment := range strings.Split(prefix, "/") {
+			if segment == "" || segment == "." || segment == ".." {
+				return nil, errors.New("S3 key prefix must contain non-empty relative path segments")
+			}
+			for _, char := range segment {
+				if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.') {
+					return nil, errors.New("S3 key prefix may contain only letters, digits, hyphens, underscores, dots, and path separators")
+				}
+			}
+		}
+		prefix += "/"
 	}
 	if cfg.Endpoint != "" {
 		endpoint, err := url.Parse(cfg.Endpoint)
@@ -60,7 +76,7 @@ func NewS3(ctx context.Context, cfg S3Config) (*S3, error) {
 			opts.BaseEndpoint = aws.String(cfg.Endpoint)
 		}
 	})
-	return &S3{client: client, bucket: cfg.Bucket}, nil
+	return &S3{client: client, bucket: cfg.Bucket, keyPrefix: prefix}, nil
 }
 
 func (s *S3) Put(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
@@ -86,7 +102,7 @@ func (s *S3) Put(ctx context.Context, key string, body io.Reader, size int64, co
 		return fmt.Errorf("rewind S3 object: %w", err)
 	}
 	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(s.bucket), Key: aws.String(key), Body: file,
+		Bucket: aws.String(s.bucket), Key: aws.String(s.keyPrefix + key), Body: file,
 		ContentLength: aws.Int64(size), ContentType: aws.String(contentType),
 	})
 	if err != nil {
@@ -99,7 +115,7 @@ func (s *S3) Open(ctx context.Context, key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	output, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	output, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(s.keyPrefix + key)})
 	if isS3NotFound(err) {
 		return nil, domain.ErrNotFound
 	}
@@ -113,7 +129,7 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 	if err := validateKey(key); err != nil {
 		return err
 	}
-	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(s.keyPrefix + key)})
 	if err != nil && !isS3NotFound(err) {
 		return fmt.Errorf("delete S3 object: %w", err)
 	}
