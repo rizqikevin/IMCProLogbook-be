@@ -31,6 +31,7 @@ type Repository interface {
 	CreateMessage(context.Context, domain.Message) (domain.Message, error)
 	ListMessages(context.Context, domain.MessageFilter) ([]domain.Message, error)
 	MessagePhoto(context.Context, int64, string, string) (domain.Photo, error)
+	DeleteMessage(context.Context, int64, string, string) error
 	ReserveUploads(context.Context, []string, time.Time) error
 	Create(context.Context, domain.Logbook) (domain.Logbook, error)
 	AppendPhotos(context.Context, string, []domain.Photo, int) (domain.Logbook, error)

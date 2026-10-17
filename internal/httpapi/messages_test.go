@@ -42,6 +42,62 @@ func (r *messageHTTPRepo) ListMessages(_ context.Context, filter domain.MessageF
 	return items, nil
 }
 
+func (r *messageHTTPRepo) DeleteMessage(_ context.Context, machineID int64, messageID, userID string) error {
+	for i, message := range r.messages {
+		if message.ID != messageID || message.MachineID != machineID {
+			continue
+		}
+		if message.Author.ID != userID {
+			return domain.ErrForbidden
+		}
+		r.messages = append(r.messages[:i], r.messages[i+1:]...)
+		return nil
+	}
+	return domain.ErrNotFound
+}
+
+func TestDeleteMessageHTTPContract(t *testing.T) {
+	const messageID = "00000000-0000-4000-8000-000000000001"
+	const ownerID = "06f28606-ff86-49f3-bf98-7ffab8c3d2a4"
+	for _, tc := range []struct {
+		name   string
+		path   string
+		owner  string
+		auth   bool
+		status int
+	}{
+		{"sender", "/api/v1/machines/1/messages/" + messageID, ownerID, true, 204},
+		{"unauthenticated", "/api/v1/machines/1/messages/" + messageID, ownerID, false, 401},
+		{"other sender", "/api/v1/machines/1/messages/" + messageID, "00000000-0000-4000-8000-000000000002", true, 403},
+		{"wrong machine", "/api/v1/machines/2/messages/" + messageID, ownerID, true, 404},
+		{"missing", "/api/v1/machines/1/messages/00000000-0000-4000-8000-000000000003", ownerID, true, 404},
+		{"invalid machine", "/api/v1/machines/no/messages/" + messageID, ownerID, true, 400},
+		{"invalid message", "/api/v1/machines/1/messages/bad", ownerID, true, 400},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &messageHTTPRepo{messages: []domain.Message{{ID: messageID, MachineID: 1, Author: domain.MessageAuthor{ID: tc.owner}}}}
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			h := New(service.NewLogbooks(repo, nil, service.Limits{}, logger), service.NewAuth(sessionRepo{role: "operator"}, time.Hour), Options{Logger: logger})
+			r := httptest.NewRequest("DELETE", tc.path, nil)
+			if tc.auth {
+				authorized(r)
+			}
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if w.Code != tc.status {
+				t.Fatalf("status=%d body=%s", w.Code, w.Body)
+			}
+			if tc.status == 204 {
+				if w.Body.Len() != 0 || len(repo.messages) != 0 {
+					t.Fatalf("delete body=%s messages=%+v", w.Body, repo.messages)
+				}
+			} else if len(repo.messages) != 1 {
+				t.Fatal("rejected delete changed messages")
+			}
+		})
+	}
+}
+
 func TestMessageHTTPContract(t *testing.T) {
 	repo := &messageHTTPRepo{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

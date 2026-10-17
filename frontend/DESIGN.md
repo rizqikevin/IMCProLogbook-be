@@ -56,6 +56,20 @@ machine navigation and failed requests within the tab. Server data remains autho
 Historical archives retain their actual dates, shifts, author, timestamps, and
 photos. A labelled archive link provides context without fabricated message text.
 
+## Sender-owned message deletion
+
+The quiet, labelled delete control sits on the sender's native message so removal
+stays tied to its content without competing with the navy send action. Other
+authors' messages and legacy archives have no delete control; admin status does
+not override native-message ownership. Existing industrial surfaces, system type,
+44px targets, visible focus, and ENERGY 1 / RHYTHM 2 / MOTION 1 remain unchanged.
+
+A native confirmation dialog names the machine and timestamp and warns that the
+message and all its photos will be permanently deleted. Cancel restores focus;
+pending deletion blocks duplicate actions and dismissal. Failure keeps the row
+and dialog available for retry. Success removes the row and returns focus to the
+timeline while preserving the composer draft, keeping deletion separate from sending.
+
 ## Search within a machine
 
 Reading: text retrieval inside the existing factory logbook, retaining industrial

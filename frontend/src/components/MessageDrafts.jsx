@@ -28,10 +28,11 @@ function DraftStore({ children }) {
     };
   }, []);
   function update(machineId, change) {
-    setDrafts((old) => ({
-      ...old,
-      [machineId]: { ...(old[machineId] || emptyDraft), ...change },
-    }));
+    setDrafts((old) => {
+      const draft = old[machineId] || emptyDraft;
+      const patch = typeof change === "function" ? change(draft) : change;
+      return { ...old, [machineId]: { ...draft, ...patch } };
+    });
   }
   function preview(file) {
     const url = URL.createObjectURL(file);

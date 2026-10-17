@@ -38,6 +38,7 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 6. **Pilih mesin lain** kembali ke daftar mesin. Draft teks dan foto masing-masing mesin tetap ada selama tab dan sesi yang sama.
 7. Tekan **Cari pesan**, isi teks, lalu tekan **Cari** atau Enter. Pencarian mencakup seluruh riwayat teks mesin ini, bukan hanya pesan yang sudah dimuat. **Muat hasil sebelumnya** membuka kecocokan yang lebih lama.
 8. **Reset**, **Tutup pencarian**, atau Escape mengembalikan riwayat lengkap. Kata pencarian yang sudah dikirim tersimpan pada URL `?q=`, sehingga reload dan tombol Back/Forward memulihkan filter. Mengetik saja tidak mengubah hasil. Draft pesan dan foto tidak berubah saat mencari.
+9. Pada pesan Anda, tekan **Hapus pesan**, lalu konfirmasi **Hapus pesan** dalam dialog. Penghapusan permanen mencakup seluruh foto pesan. **Batal** atau Escape menutup dialog dan mengembalikan fokus; saat penghapusan berlangsung, kontrol dan penutupan dialog dinonaktifkan. Jika gagal, pesan dan dialog tetap ada; gunakan **Coba hapus lagi**. Setelah sukses, baris pesan hilang tanpa menghapus draft teks atau foto.
 
 **Ambil foto dari kamera** membuka pratinjau dengan tombol **Ambil foto** tetap
 terjangkau. Ambil beberapa foto tanpa membuka ulang kamera. Jumlah dan thumbnail
@@ -62,6 +63,9 @@ Arsip lama tampil sebagai arsip foto dengan tanggal dan shift aslinya, tanpa tek
 buatan. Tautan `/logbooks/:id` dan navigasi shift lama tetap dapat dibaca. Form
 pembuatan arsip lama dan penambahan halaman tidak lagi menjadi route frontend.
 Admin tetap dapat menghapus arsip lama melalui detail; backend memverifikasi izin.
+Tombol hapus pada percakapan hanya tersedia untuk pesan native milik akun aktif,
+bukan pesan pengguna lain atau arsip lama. Admin juga tidak dapat menghapus pesan
+native pengguna lain; izin arsip lama tetap terpisah.
 
 ## Penyimpanan dan kegagalan pengiriman
 
@@ -100,6 +104,17 @@ pesan saat pencarian aktif agar pesan yang tidak cocok tidak masuk ke hasil.
 `POST` pada route yang sama menggunakan multipart dengan `text` opsional dan
 field `photos` berulang. Respons berisi pesan lengkap dengan `author`, `created_at`,
 dan `photos`; `legacy_archive` mengacu pada arsip foto historis.
+
+`DELETE /api/v1/machines/{machineID}/messages/{messageID}` memakai Bearer token
+dan hanya mengizinkan pengirim menghapus pesan native pada mesin aktif di path.
+Role admin tidak memberi pengecualian. Respons `204` tidak memiliki body;
+`400` berarti format ID tidak valid, `401` berarti autentikasi tidak valid, dan
+`403` berarti pengguna bukan pengirim. API mengembalikan `404` jika pesan tidak
+ada, sudah dihapus, berada pada mesin lain, mesin tidak ada atau tidak aktif,
+atau ID merujuk arsip legacy. Penghapusan berulang juga menghasilkan `404`.
+Setelah sukses, pesan tidak muncul di timeline dan foto langsung tidak dapat
+diakses melalui API. Penghapusan file storage masuk antrean cleanup durable
+untuk diproses background. Fitur ini tidak memerlukan migrasi database.
 
 ## Build dan Docker
 

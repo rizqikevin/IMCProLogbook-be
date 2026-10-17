@@ -5,7 +5,7 @@ import { useMachines } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate, formatTime, validateSelection } from "../lib/format";
 import { mergeMessages, messageForm, textLimit, validateMessage } from "../lib/messages";
-import { ErrorNotice, Icon, Loading } from "../components/common";
+import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 import { useMessageDraft } from "../components/MessageDrafts";
 import MachinePhoto from "../components/MachinePhoto";
 import MessagePhoto from "../components/MessagePhoto";
@@ -43,6 +43,16 @@ function MachineConversation({ machine }) {
   const [more, setMore] = useState({ loading: false, error: null });
   const [selectionError, setSelectionError] = useState("");
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const [deleteStatus, setDeleteStatus] = useState("");
+  const deletePending = useRef(false);
+  const deleteTrigger = useRef(null);
+  const restoreDeleteFocus = useRef(false);
+  const mounted = useRef(false);
+  const deleted = useRef(new Set());
+  for (const id of draft.deletedMessageIds || []) deleted.current.add(id);
   const timeline = useRef(null);
   const shell = useRef(null);
   const textarea = useRef(null);
@@ -52,6 +62,52 @@ function MachineConversation({ machine }) {
   const posting = useRef(false);
   const seenSent = useRef(null);
   const endpoint = `/machines/${machineId}/messages`;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (confirmDelete || !restoreDeleteFocus.current) return;
+    restoreDeleteFocus.current = false;
+    const target = deleteTrigger.current;
+    if (target?.isConnected) target.focus({ preventScroll: true });
+    else timeline.current?.focus({ preventScroll: true });
+  }, [confirmDelete]);
+
+  function closeDelete() {
+    if (deletePending.current) return;
+    restoreDeleteFocus.current = true;
+    setConfirmDelete(null);
+    setDeleteError(null);
+  }
+
+  async function deleteMessage() {
+    if (!confirmDelete || deletePending.current) return;
+    const id = String(confirmDelete.id);
+    deletePending.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await request(`${endpoint}/${id}`, { method: "DELETE" });
+      deleted.current.add(id);
+      update(machineId, (current) => ({
+        deletedMessageIds: [...(current.deletedMessageIds || []), id],
+        sent: String(current.sent?.id) === id ? null : current.sent,
+      }));
+      if (!mounted.current) return;
+      setState((old) => ({ ...old, items: old.items.filter((message) => String(message.id) !== id) }));
+      restoreDeleteFocus.current = true;
+      setConfirmDelete(null);
+      setDeleteStatus("Pesan dihapus.");
+    } catch (error) {
+      if (mounted.current) setDeleteError(error);
+    } finally {
+      deletePending.current = false;
+      if (mounted.current) setDeleting(false);
+    }
+  }
 
   useLayoutEffect(() => {
     const input = textarea.current;
@@ -123,7 +179,7 @@ function MachineConversation({ machine }) {
       .then((page) => {
         if (controller.signal.aborted || activeQuery.current !== query) return;
         scroll.current = { bottom: true };
-        setState({ items: page.items, cursor: page.next_cursor || "", loading: false, error: null });
+        setState({ items: page.items.filter((message) => !deleted.current.has(String(message.id))), cursor: page.next_cursor || "", loading: false, error: null });
       })
       .catch((error) => {
         if (!controller.signal.aborted && activeQuery.current === query && error.name !== "AbortError") setState({ items: [], cursor: "", loading: false, error });
@@ -132,7 +188,7 @@ function MachineConversation({ machine }) {
   }, [endpoint, attempt, query]);
 
   useEffect(() => {
-    if (!draft.sent || seenSent.current === draft.sent.id) return;
+    if (!draft.sent || seenSent.current === draft.sent.id || deleted.current.has(String(draft.sent.id))) return;
     if (query) {
       seenSent.current = draft.sent.id;
       setAttempt((value) => value + 1);
@@ -160,7 +216,7 @@ function MachineConversation({ machine }) {
       const page = await request(`${endpoint}?${queryString({ limit: 20, cursor: state.cursor, q: query })}`, { signal: controller.signal });
       if (controller.signal.aborted || activeQuery.current !== query) return;
       scroll.current = { height: timeline.current.scrollHeight };
-      setState((old) => ({ ...old, items: mergeMessages(page.items, old.items), cursor: page.next_cursor || "" }));
+      setState((old) => ({ ...old, items: mergeMessages(page.items, old.items).filter((message) => !deleted.current.has(String(message.id))), cursor: page.next_cursor || "" }));
       setMore({ loading: false, error: null });
     } catch (error) {
       if (!controller.signal.aborted && activeQuery.current === query && error.name !== "AbortError") setMore({ loading: false, error });
@@ -198,6 +254,7 @@ function MachineConversation({ machine }) {
   }
 
   const count = Array.from(draft.text).length;
+  const items = state.items.filter((message) => !deleted.current.has(String(message.id)));
   return (
     <div className="conversation-page" ref={shell}>
       <header className="conversation-heading">
@@ -222,11 +279,11 @@ function MachineConversation({ machine }) {
         {state.loading ? <Loading>{query ? "Memuat hasil pencarian…" : "Memuat pesan…"}</Loading> : state.error ? <ErrorNotice error={state.error} onRetry={() => setAttempt((value) => value + 1)} /> : <>
           {state.cursor && <div className="older-messages"><button type="button" className="button button-outline" onClick={loadOlder} disabled={more.loading}>{more.loading ? "Memuat pesan lama…" : query ? "Muat hasil sebelumnya" : "Muat pesan sebelumnya"}</button></div>}
           <ErrorNotice error={more.error} onRetry={loadOlder} />
-          {!state.items.length && <div className="empty-state"><h2>{query ? "Tidak ada pesan yang cocok" : "Belum ada pesan"}</h2><p>{query ? "Coba teks lain atau reset pencarian untuk melihat seluruh riwayat." : "Tulis catatan atau pilih foto untuk memulai logbook mesin ini."}</p></div>}
+          {!items.length && <div className="empty-state"><h2>{query ? "Tidak ada pesan yang cocok" : "Belum ada pesan"}</h2><p>{query ? "Coba teks lain atau reset pencarian untuk melihat seluruh riwayat." : "Tulis catatan atau pilih foto untuk memulai logbook mesin ini."}</p></div>}
           <ol className="message-list">
-            {state.items.map((message, index) => {
+            {items.map((message, index) => {
               const date = dayFormat.format(new Date(message.created_at));
-              const previous = state.items[index - 1];
+              const previous = items[index - 1];
               const own = user?.id != null && String(message.author.id) === String(user.id);
               return <li key={message.id}>
                 {(!previous || dayFormat.format(new Date(previous.created_at)) !== date) && <div className="message-date"><span>{date}</span></div>}
@@ -235,7 +292,10 @@ function MachineConversation({ machine }) {
                   {message.legacy_archive && <div className="legacy-message"><span>Arsip foto · {formatDate(message.legacy_archive.log_date)} · {message.legacy_archive.shift.name}</span><Link to={`/logbooks/${message.legacy_archive.id}`}>Buka arsip lama</Link></div>}
                   {message.text !== "" && <p className="message-text">{message.text}</p>}
                   {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} />)}</div>}
-                  <time className="message-time" dateTime={message.created_at} title={formatTime(message.created_at)}>{clockFormat.format(new Date(message.created_at))}</time>
+                  <footer className="message-footer">
+                    <time className="message-time" dateTime={message.created_at} title={formatTime(message.created_at)}>{clockFormat.format(new Date(message.created_at))}</time>
+                    {own && !message.legacy_archive && <button type="button" className="icon-button message-delete" disabled={deleting} aria-label={`Hapus pesan Anda, ${formatTime(message.created_at)}`} title="Hapus pesan" onClick={(event) => { deleteTrigger.current = event.currentTarget; setDeleteError(null); setDeleteStatus(""); setConfirmDelete(message); }}><Icon name="trash" size={16} /></button>}
+                  </footer>
                 </article>
               </li>;
             })}
@@ -262,6 +322,15 @@ function MachineConversation({ machine }) {
         <div className="composer-footnote"><p id="message-help">{draft.sending ? "Mengirim pesan…" : draft.photos.length ? `${draft.photos.length}/20 foto · Maks. 10 MB/foto` : "Teks, foto, atau keduanya"}</p><span role="status">{draft.sent ? "Pesan terkirim." : count > textLimit - 1000 ? `${count.toLocaleString("id-ID")}/${textLimit.toLocaleString("id-ID")}` : ""}</span></div>
         <span className="visually-hidden">Foto JPG, PNG, WebP. Maksimal 20 foto, 10 MB per foto. Draft tetap ada saat berpindah mesin. Menutup atau memuat ulang tab menghapus draft.</span>
       </form>
+      <span className="visually-hidden" role="status">{deleteStatus}</span>
+      {confirmDelete && <Dialog title="Hapus pesan ini?" className="message-delete-dialog" onClose={closeDelete} dismissible={!deleting}>
+        <p>Pesan Anda di <strong>{machine.name}</strong> pada {formatTime(confirmDelete.created_at)} beserta seluruh fotonya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</p>
+        <ErrorNotice error={deleteError} />
+        <div className="dialog-actions" aria-busy={deleting}>
+          <button type="button" className="button button-outline" disabled={deleting} onClick={closeDelete}>Batal</button>
+          <button type="button" className="button button-danger" disabled={deleting} onClick={deleteMessage}>{deleting ? "Menghapus pesan…" : deleteError ? "Coba hapus lagi" : "Hapus pesan"}</button>
+        </div>
+      </Dialog>}
       {cameraOpen && <Camera onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} onRemove={(photo) => { release(photo); update(machineId, { photos: draft.photos.filter((item) => item !== photo) }); setSelectionError(""); }} photos={draft.photos} maximum={20} />}
     </div>
   );

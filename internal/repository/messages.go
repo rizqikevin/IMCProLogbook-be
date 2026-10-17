@@ -145,3 +145,32 @@ func (r *Repository) MessagePhoto(ctx context.Context, machineID int64, messageI
 		AND EXISTS (SELECT 1 FROM messages m JOIN machines machine ON machine.id = m.machine_id
 			WHERE m.id = $1::uuid AND m.machine_id = $3 AND machine.active)`, messageID, photoID, machineID))
 }
+
+func (r *Repository) DeleteMessage(ctx context.Context, machineID int64, messageID, userID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var owned bool
+	if err := tx.QueryRow(ctx, `SELECT m.created_by = $3::uuid FROM messages m
+		JOIN machines machine ON machine.id = m.machine_id
+		WHERE m.id = $1::uuid AND m.machine_id = $2 AND machine.active
+		FOR UPDATE OF m`, messageID, machineID, userID).Scan(&owned); err != nil {
+		return mapError(err)
+	}
+	if !owned {
+		return domain.ErrForbidden
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO object_deletions(storage_key, not_before)
+		SELECT storage_key, clock_timestamp() FROM message_photos WHERE message_id = $1::uuid`, messageID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM message_photos WHERE message_id = $1::uuid`, messageID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM messages WHERE id = $1::uuid`, messageID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}

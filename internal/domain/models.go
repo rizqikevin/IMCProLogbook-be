@@ -11,6 +11,7 @@ var (
 	ErrUserExists       = errors.New("username already taken")
 	ErrInvalidReference = errors.New("machine or shift does not exist or is inactive")
 	ErrUnauthorized     = errors.New("invalid credentials or session")
+	ErrForbidden        = errors.New("not allowed")
 	ErrUploadExpired    = errors.New("upload reservation expired")
 	ErrTooManyPhotos    = errors.New("logbook photo limit exceeded")
 )

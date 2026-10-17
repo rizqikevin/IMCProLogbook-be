@@ -93,3 +93,16 @@ func (s *Server) messagePhoto(w http.ResponseWriter, r *http.Request) {
 	defer body.Close()
 	s.servePhoto(w, r, photo, body)
 }
+
+func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
+	machineID, err := machinePathID(r)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	if err := s.logbooks.DeleteMessage(r.Context(), currentUser(r), machineID, r.PathValue("messageID")); err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

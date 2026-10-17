@@ -165,3 +165,13 @@ func (s *Logbooks) OpenMessagePhoto(ctx context.Context, machineID int64, messag
 	photo.URL = messagePhotoURL(machineID, messageID, photoID)
 	return photo, reader, nil
 }
+
+func (s *Logbooks) DeleteMessage(ctx context.Context, user domain.User, machineID int64, messageID string) error {
+	if !validUUID(user.ID) {
+		return domain.ErrUnauthorized
+	}
+	if machineID <= 0 || !validUUID(messageID) {
+		return invalid("invalid machine or message ID")
+	}
+	return s.repo.DeleteMessage(ctx, machineID, messageID, user.ID)
+}

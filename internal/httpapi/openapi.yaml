@@ -8,6 +8,7 @@ info:
     waktu ditentukan server. Arsip lama tampil sebagai pesan teks kosong dengan
     legacy_archive, waktu asli, penulis asli, dan seluruh foto asli.
     Pesan baru tidak mendukung edit, import, realtime, atau pengiriman idempoten.
+    Pesan native dapat dihapus hanya oleh pengirim, tanpa pengecualian untuk admin.
 
     Arsip foto logbook dengan login per operator. Operator dan admin dapat membaca,
     membuat, dan menambah foto pada semua logbook; penghapusan memerlukan admin.
@@ -143,6 +144,47 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
         '413':
           description: Body melebihi batas upload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/machines/{machineID}/messages/{messageID}:
+    parameters:
+      - $ref: '#/components/parameters/MachineID'
+      - name: messageID
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/ID' }
+    delete:
+      tags: [Messages]
+      operationId: deleteMachineMessage
+      summary: Menghapus pesan native milik pengirim
+      description: |
+        Hanya pengirim pesan yang boleh menghapusnya, termasuk jika pengguna adalah
+        admin; role admin tidak memberi hak menghapus pesan pengguna lain.
+        Hanya pesan native yang didukung, bukan proyeksi legacy_archive.
+        Pesan harus berada pada mesin aktif yang disebut pada path.
+        Setelah sukses, pesan hilang dari timeline dan foto langsung tidak dapat
+        diakses melalui API. Penghapusan file storage masuk antrean cleanup durable
+        untuk diproses background. Tidak memerlukan migrasi database.
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '400':
+          description: machineID atau messageID tidak valid secara sintaksis.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Pengguna bukan pengirim pesan, termasuk admin.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '404':
+          description: Pesan tidak ada, sudah dihapus, berada pada mesin lain, mesin tidak ada atau tidak aktif, atau ID merujuk arsip legacy.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }

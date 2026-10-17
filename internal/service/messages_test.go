@@ -16,6 +16,7 @@ type messageRepoStub struct {
 	checkMachine  func(context.Context, int64) error
 	createMessage func(context.Context, domain.Message) (domain.Message, error)
 	listMessages  func(context.Context, domain.MessageFilter) ([]domain.Message, error)
+	deleteMessage func(context.Context, int64, string, string) error
 }
 
 func (r *messageRepoStub) CheckMachine(ctx context.Context, id int64) error {
@@ -29,6 +30,60 @@ func (r *messageRepoStub) CreateMessage(ctx context.Context, message domain.Mess
 }
 func (r *messageRepoStub) ListMessages(ctx context.Context, filter domain.MessageFilter) ([]domain.Message, error) {
 	return r.listMessages(ctx, filter)
+}
+
+func (r *messageRepoStub) DeleteMessage(ctx context.Context, machineID int64, messageID, userID string) error {
+	return r.deleteMessage(ctx, machineID, messageID, userID)
+}
+
+func TestDeleteMessageValidatesBeforeRepository(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		userID    string
+		machineID int64
+		messageID string
+	}{
+		{"missing user", "", 1, testBookID},
+		{"invalid user", "bad", 1, testBookID},
+		{"invalid machine", testUserID, 0, testBookID},
+		{"negative machine", testUserID, -1, testBookID},
+		{"invalid message", testUserID, 1, "bad"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &messageRepoStub{deleteMessage: func(context.Context, int64, string, string) error {
+				t.Fatal("invalid request reached repository")
+				return nil
+			}}
+			err := testLogbooks(repo, &storeStub{}).DeleteMessage(context.Background(), domain.User{ID: tc.userID}, tc.machineID, tc.messageID)
+			if !validUUID(tc.userID) {
+				if !errors.Is(err, domain.ErrUnauthorized) {
+					t.Fatalf("expected unauthorized, got %v", err)
+				}
+			} else {
+				var validation *domain.ValidationError
+				if !errors.As(err, &validation) {
+					t.Fatalf("expected validation error, got %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestDeleteMessagePassesOwnershipToAtomicRepository(t *testing.T) {
+	for _, want := range []error{nil, domain.ErrForbidden, domain.ErrNotFound, errors.New("database unavailable")} {
+		calls := 0
+		repo := &messageRepoStub{deleteMessage: func(_ context.Context, machineID int64, messageID, userID string) error {
+			calls++
+			if machineID != 2 || messageID != testBookID || userID != testUserID {
+				t.Fatalf("wrong delete arguments: %d %s %s", machineID, messageID, userID)
+			}
+			return want
+		}}
+		err := testLogbooks(repo, &storeStub{}).DeleteMessage(context.Background(), domain.User{ID: testUserID, Role: "admin"}, 2, testBookID)
+		if !errors.Is(err, want) || calls != 1 {
+			t.Fatalf("err=%v want=%v calls=%d", err, want, calls)
+		}
+	}
 }
 
 func TestCreateMessageAcceptsTextPhotosOrBoth(t *testing.T) {

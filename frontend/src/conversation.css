@@ -30,6 +30,9 @@
   .message-meta { margin-bottom: 0.2rem; color: #39355f; font-size: 0.78rem; }
   .message-text { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; line-height: 1.5; }
   .message-time { display: block; margin-top: 0.25rem; text-align: right; color: #515567; font-size: 0.7rem; }
+  .message-footer { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; }
+  .message-footer .message-time { margin-top: 0; }
+  .message-delete-dialog .button { min-width: 44px; min-height: 44px; }
   .legacy-message { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; color: #515567; font-size: 0.85rem; }
   .legacy-message a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; color: var(--green); }
   .message-entry:has(.message-photos) { width: min(88%, 480px); }

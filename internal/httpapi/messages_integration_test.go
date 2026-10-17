@@ -2,9 +2,13 @@ package httpapi_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"machine-logbook/internal/domain"
@@ -121,4 +125,86 @@ func TestIntegrationMachineMessagesTextPhotosAndHistory(t *testing.T) {
 	if len(restored.Items) != 4 || restored.Items[0].ID != archive.ID || restored.Items[2].ID != sent[1].ID {
 		t.Fatalf("clear did not restore history and photo-only message: %+v", restored)
 	}
+}
+
+func TestIntegrationDeleteMessageSenderOnlyAndPhotoCleanup(t *testing.T) {
+	app := newIntegrationApp(t)
+	ctx := context.Background()
+	operator := app.login(t, "operator")
+	admin := app.login(t, "admin")
+	_, jpeg := integrationImages(t)
+	body, contentType := uploadBody(t, true, jpeg)
+	response := app.request(http.MethodPost, "/api/v1/logbooks", operator.AccessToken, contentType, body)
+	requireStatus(t, response, http.StatusCreated)
+	archive := decodeBody[domain.Logbook](t, response)
+	body, contentType = uploadBody(t, false, jpeg, jpeg)
+	response = app.request(http.MethodPost, "/api/v1/machines/1/messages", operator.AccessToken, contentType, body)
+	requireStatus(t, response, http.StatusCreated)
+	message := decodeBody[domain.Message](t, response)
+	if len(message.Photos) != 2 {
+		t.Fatalf("message photos=%+v", message.Photos)
+	}
+	keys := make([]string, len(message.Photos))
+	for i, photo := range message.Photos {
+		if err := app.pool.QueryRow(ctx, `SELECT storage_key FROM message_photos WHERE id = $1::uuid`, photo.ID).Scan(&keys[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	messageURL := "/api/v1/machines/1/messages/" + message.ID
+	requireStatus(t, app.request(http.MethodDelete, messageURL, "", "", nil), http.StatusUnauthorized)
+	requireStatus(t, app.request(http.MethodDelete, messageURL, admin.AccessToken, "", nil), http.StatusForbidden)
+	for _, path := range []string{
+		"/api/v1/machines/2/messages/" + message.ID,
+		"/api/v1/machines/99/messages/" + message.ID,
+		"/api/v1/machines/1/messages/00000000-0000-4000-8000-000000000000",
+		"/api/v1/machines/1/messages/" + archive.ID,
+	} {
+		requireStatus(t, app.request(http.MethodDelete, path, operator.AccessToken, "", nil), http.StatusNotFound)
+	}
+	if _, err := app.pool.Exec(ctx, `UPDATE machines SET active = FALSE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, app.request(http.MethodDelete, messageURL, operator.AccessToken, "", nil), http.StatusNotFound)
+	if _, err := app.pool.Exec(ctx, `UPDATE machines SET active = TRUE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	for _, photo := range message.Photos {
+		requireStatus(t, app.request(http.MethodGet, photo.URL, operator.AccessToken, "", nil), http.StatusOK)
+	}
+	response = app.request(http.MethodDelete, messageURL, operator.AccessToken, "", nil)
+	requireStatus(t, response, http.StatusNoContent)
+	if response.Body.Len() != 0 {
+		t.Fatalf("delete response body=%q", response.Body.String())
+	}
+	requireStatus(t, app.request(http.MethodDelete, messageURL, operator.AccessToken, "", nil), http.StatusNotFound)
+	response = app.request(http.MethodGet, "/api/v1/machines/1/messages", operator.AccessToken, "", nil)
+	requireStatus(t, response, http.StatusOK)
+	page := decodeBody[domain.MessagePage](t, response)
+	if len(page.Items) != 1 || page.Items[0].ID != archive.ID || page.Items[0].LegacyArchive == nil {
+		t.Fatalf("remaining messages=%+v", page)
+	}
+	for i, photo := range message.Photos {
+		requireStatus(t, app.request(http.MethodGet, photo.URL, operator.AccessToken, "", nil), http.StatusNotFound)
+		requireStatus(t, app.request(http.MethodHead, photo.URL, operator.AccessToken, "", nil), http.StatusNotFound)
+		var queued bool
+		if err := app.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM object_deletions WHERE storage_key = $1 AND not_before <= now())`, keys[i]).Scan(&queued); err != nil || !queued {
+			t.Fatalf("photo cleanup not queued: key=%s queued=%v err=%v", keys[i], queued, err)
+		}
+		if _, err := os.Stat(filepath.Join(app.objects, filepath.FromSlash(keys[i]))); err != nil {
+			t.Fatalf("object removed before cleanup: %v", err)
+		}
+	}
+	if err := app.books.Cleanup(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range keys {
+		if _, err := os.Stat(filepath.Join(app.objects, filepath.FromSlash(key))); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("cleanup left deleted message photo: %s, %v", key, err)
+		}
+		var queued bool
+		if err := app.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM object_deletions WHERE storage_key = $1)`, key).Scan(&queued); err != nil || queued {
+			t.Fatalf("completed cleanup remains queued: key=%s queued=%v err=%v", key, queued, err)
+		}
+	}
+	requireStatus(t, app.request(http.MethodGet, archive.Photos[0].URL, operator.AccessToken, "", nil), http.StatusOK)
 }

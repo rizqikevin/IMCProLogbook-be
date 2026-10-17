@@ -202,3 +202,105 @@ func TestIntegrationMessageMigrationPreservesExistingArchive(t *testing.T) {
 		t.Fatalf("historical photo lookup failed: %v", err)
 	}
 }
+
+func TestIntegrationDeleteMessageRequiresSenderAndQueuesPhotos(t *testing.T) {
+	repo, pool, user := testRepository(t)
+	ctx := context.Background()
+	admin := domain.User{ID: newID(), Username: "admin", Name: "Test admin", Role: "admin", Active: true, PasswordHash: "test-hash"}
+	if err := repo.CreateUser(ctx, admin); err != nil {
+		t.Fatal(err)
+	}
+	photo := newPhoto(user.ID)
+	photo.PageNumber = 1
+	reserve(t, repo, photo)
+	message, err := repo.CreateMessage(ctx, domain.Message{ID: newID(), MachineID: 1, Text: "delete me", Author: domain.MessageAuthor{ID: user.ID}, Photos: []domain.Photo{photo}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivePhoto := newPhoto(user.ID)
+	reserve(t, repo, archivePhoto)
+	archive, err := repo.Create(ctx, newBook(user.ID, "2026-09-22", archivePhoto))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, admin.ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("admin override: %v", err)
+	}
+	for _, tc := range []struct {
+		machine int64
+		message string
+	}{{2, message.ID}, {99, message.ID}, {1, newID()}, {1, archive.ID}} {
+		if err := repo.DeleteMessage(ctx, tc.machine, tc.message, user.ID); !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("delete %+v: %v", tc, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE machines SET active = FALSE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, user.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("inactive machine delete: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE machines SET active = TRUE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	if keys, err := repo.PendingDeletions(ctx, 20); err != nil || len(keys) != 0 {
+		t.Fatalf("rejected deletion queued photos: %v, %v", keys, err)
+	}
+	if _, err := repo.MessagePhoto(ctx, 1, message.ID, photo.ID); err != nil {
+		t.Fatalf("rejected deletion removed photo: %v", err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	items, err := repo.ListMessages(ctx, domain.MessageFilter{MachineID: 1, Limit: 20})
+	if err != nil || len(items) != 1 || items[0].ID != archive.ID {
+		t.Fatalf("remaining messages=%+v err=%v", items, err)
+	}
+	if _, err := repo.MessagePhoto(ctx, 1, message.ID, photo.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted photo lookup: %v", err)
+	}
+	if keys, err := repo.PendingDeletions(ctx, 20); err != nil || len(keys) != 1 || keys[0] != photo.StorageKey {
+		t.Fatalf("deleted photo queue=%v err=%v", keys, err)
+	}
+	if _, err := repo.Photo(ctx, archive.ID, archivePhoto.ID); err != nil {
+		t.Fatalf("legacy photo changed: %v", err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, user.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("repeat deletion: %v", err)
+	}
+}
+
+func TestIntegrationDeleteMessageRollsBackWhenCleanupQueueFails(t *testing.T) {
+	repo, pool, user := testRepository(t)
+	ctx := context.Background()
+	photo := newPhoto(user.ID)
+	photo.PageNumber = 1
+	reserve(t, repo, photo)
+	message, err := repo.CreateMessage(ctx, domain.Message{ID: newID(), MachineID: 1, Text: "keep on failure", Author: domain.MessageAuthor{ID: user.ID}, Photos: []domain.Photo{photo}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE object_deletions ADD CONSTRAINT reject_cleanup CHECK (FALSE) NOT VALID`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, user.ID); err == nil {
+		t.Fatal("deletion succeeded despite cleanup queue failure")
+	}
+	items, err := repo.ListMessages(ctx, domain.MessageFilter{MachineID: 1, Limit: 20})
+	if err != nil || len(items) != 1 || items[0].ID != message.ID || len(items[0].Photos) != 1 {
+		t.Fatalf("rollback lost message or photo: %+v, %v", items, err)
+	}
+	stored, err := repo.MessagePhoto(ctx, 1, message.ID, photo.ID)
+	if err != nil || stored.StorageKey != photo.StorageKey {
+		t.Fatalf("rollback lost photo: %+v, %v", stored, err)
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE object_deletions DROP CONSTRAINT reject_cleanup`); err != nil {
+		t.Fatal(err)
+	}
+	if keys, err := repo.PendingDeletions(ctx, 20); err != nil || len(keys) != 0 {
+		t.Fatalf("failed deletion queued photos: %v, %v", keys, err)
+	}
+	if err := repo.DeleteMessage(ctx, 1, message.ID, user.ID); err != nil {
+		t.Fatalf("retry deletion: %v", err)
+	}
+}
