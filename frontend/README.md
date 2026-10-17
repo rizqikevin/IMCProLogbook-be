@@ -60,6 +60,20 @@ terakhir; scroll ke awal menambah 2 foto pertama, bukan seluruh 20 foto. Respons
 terpilih dan dapat ditutup dengan Escape. Smoke ini tidak menggantikan E2E backend
 PostgreSQL.
 
+Penampil foto percakapan dan arsip menyediakan **Perbesar**, **Perkecil**, dan
+**Atur ulang** (100–400% dari ukuran pas layar). Setelah diperbesar, seret foto
+dengan mouse atau satu jari; cubit dengan dua jari untuk mengubah ukuran.
+Fokuskan foto lalu gunakan Shift + tombol panah untuk menggeser lewat keyboard.
+Tombol panah kiri/kanan tanpa Shift tetap membuka foto sebelumnya/berikutnya;
+Escape menutup penampil. Ukuran dan posisi kembali ke awal saat foto berganti.
+
+Smoke Chromium memakai harness komponen bersama dengan dua gambar uji:
+desktop 1280×900 memperbesar hingga 200% dan menyeret 120×90 px; viewport
+mobile 390×844 menggeser lewat sentuhan dan mencubit dari 150% ke 300%, tanpa
+overflow horizontal. Batas 400%, tombol atur ulang, reset saat navigasi,
+Shift + panah, navigasi panah, dan Escape diperiksa. Tidak ada error runtime
+pada smoke akhir. Harness ini tidak menguji API backend atau perangkat fisik.
+
 **Ganti kamera** beralih depan/belakang. Jika izin ditolak, izinkan kamera melalui
 pengaturan peramban lalu **Coba lagi**, atau gunakan **Pilih dari galeri**. Menutup
 kamera atau berganti kamera menghentikan stream, termasuk izin yang baru selesai

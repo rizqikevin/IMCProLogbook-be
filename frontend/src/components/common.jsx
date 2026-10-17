@@ -9,6 +9,10 @@ export function Icon({ name, size = 20 }) {
       </>
     ),
     plus: <path d="M12 5v14M5 12h14" />,
+    minus: <path d="M5 12h14" />,
+    fit: <path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5" />,
+    previous: <path d="m15 5-7 7 7 7" />,
+    download: <path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" />,
     back: <path d="m14 5-7 7 7 7M7 12h13" />,
     next: <path d="m9 5 7 7-7 7" />,
     upload: (
