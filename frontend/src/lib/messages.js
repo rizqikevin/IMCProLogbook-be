@@ -20,3 +20,22 @@ export function mergeMessages(older, newer) {
   for (const message of [...older, ...newer]) messages.set(message.id, message);
   return [...messages.values()];
 }
+
+export function flattenPhotos(items) {
+  const list = [];
+  for (const message of items) {
+    if (message.photos && message.photos.length > 0) {
+      for (const photo of message.photos) {
+        list.push({
+          ...photo,
+          messageId: message.id,
+          messageAuthor: message.author?.name || "Operator",
+          messageTime: message.created_at,
+          messageText: message.text,
+          totalInMessage: message.photos.length,
+        });
+      }
+    }
+  }
+  return list;
+}

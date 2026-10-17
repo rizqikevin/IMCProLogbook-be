@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { requestPhoto } from "../lib/api";
-import { Dialog, ErrorNotice, Loading } from "./common";
+import { ErrorNotice, Loading } from "./common";
+import PhotoDialog from "./PhotoDialog";
 
-export default function MessagePhoto({ photo }) {
+export default function MessagePhoto({ photo, onOpen }) {
   const [state, setState] = useState({ loading: true, url: "", error: null });
   const [attempt, setAttempt] = useState(0);
   const [open, setOpen] = useState(false);
@@ -25,14 +26,27 @@ export default function MessagePhoto({ photo }) {
     <div className="message-photo">
       {state.loading ? <Loading>Memuat foto {photo.page_number}…</Loading> : state.error ?
         <ErrorNotice error={state.error} onRetry={() => setAttempt((value) => value + 1)} /> :
-        <button type="button" className="message-photo-open" onClick={() => setOpen(true)} aria-label={`Perbesar foto ${photo.page_number}`}>
+        <button
+          type="button"
+          className="message-photo-open"
+          onClick={() => {
+            if (onOpen) onOpen(photo);
+            else setOpen(true);
+          }}
+          aria-label={`Perbesar foto ${photo.page_number}`}
+        >
           <img src={state.url} alt={`Foto ${photo.page_number}`} loading="lazy" />
           <span>Foto {photo.page_number} · Perbesar</span>
         </button>}
-      {open && <Dialog title={`Foto ${photo.page_number}`} className="photo-dialog" onClose={() => setOpen(false)}>
-        <img src={state.url} alt={`Foto ${photo.page_number}`} />
-        <a className="button button-outline" href={state.url} download={`foto-${photo.id}.${photo.content_type.split("/")[1]}`}>Unduh foto</a>
-      </Dialog>}
+      {!onOpen && open && (
+        <PhotoDialog
+          title={`Foto ${photo.page_number}`}
+          photoUrl={state.url}
+          counterText={`Foto ${photo.page_number}`}
+          downloadName={`foto-${photo.id}.${photo.content_type?.split("/")[1] || "jpg"}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   );
 }

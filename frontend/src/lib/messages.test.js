@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeMessages, messageForm, validateMessage } from "./messages";
+import { flattenPhotos, mergeMessages, messageForm, validateMessage } from "./messages";
 
 describe("message content", () => {
   it("accepts text, photos, or both but rejects blank content", () => {
@@ -29,5 +29,63 @@ describe("timeline pages", () => {
     const b = { id: "b", created_at: a.created_at };
     const c = { id: "c", created_at: "2026-01-02T00:00:00Z" };
     expect(mergeMessages([a, b], [b, c])).toEqual([a, b, c]);
+  });
+});
+
+describe("flattenPhotos", () => {
+  it("extracts photos in sequential message order with metadata", () => {
+    const m1 = {
+      id: "m1",
+      created_at: "2026-01-01T08:00:00Z",
+      author: { name: "Operator A" },
+      text: "Catatan satu",
+      photos: [
+        { id: "p1", page_number: 1, url: "/photo1" },
+        { id: "p2", page_number: 2, url: "/photo2" },
+      ],
+    };
+    const m2 = {
+      id: "m2",
+      created_at: "2026-01-01T09:00:00Z",
+      author: { name: "Operator B" },
+      text: "Hanya teks",
+      photos: [],
+    };
+    const m3 = {
+      id: "m3",
+      created_at: "2026-01-01T10:00:00Z",
+      author: null,
+      text: "",
+      photos: [{ id: "p3", page_number: 1, url: "/photo3" }],
+    };
+
+    const photos = flattenPhotos([m1, m2, m3]);
+    expect(photos).toHaveLength(3);
+    expect(photos[0]).toMatchObject({
+      id: "p1",
+      messageId: "m1",
+      messageAuthor: "Operator A",
+      messageText: "Catatan satu",
+      totalInMessage: 2,
+    });
+    expect(photos[1]).toMatchObject({
+      id: "p2",
+      messageId: "m1",
+      messageAuthor: "Operator A",
+      messageText: "Catatan satu",
+      totalInMessage: 2,
+    });
+    expect(photos[2]).toMatchObject({
+      id: "p3",
+      messageId: "m3",
+      messageAuthor: "Operator",
+      messageText: "",
+      totalInMessage: 1,
+    });
+  });
+
+  it("returns empty array when no messages have photos", () => {
+    expect(flattenPhotos([])).toEqual([]);
+    expect(flattenPhotos([{ id: "m1", photos: [] }])).toEqual([]);
   });
 });

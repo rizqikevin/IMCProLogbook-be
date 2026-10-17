@@ -6,7 +6,7 @@ import { useBook, usePhoto } from "../hooks";
 import { request } from "../lib/api";
 import { formatBytes, formatDate, formatTime } from "../lib/format";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
-
+import PhotoDialog from "../components/PhotoDialog";
 export default function Book() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -201,16 +201,29 @@ export default function Book() {
             </aside>
           </div>
           {zoom && (
-            <Dialog
-              title={`Halaman ${selected.page_number} · ${book.machine.name}`}
-              className="photo-dialog"
+            <PhotoDialog
+              title={`Halaman ${selected?.page_number || index + 1} · ${book.machine.name}`}
+              subtitle={`${formatDate(book.log_date)}, ${book.shift.name}`}
+              counterText={`Halaman ${selected?.page_number || index + 1} dari ${book.photo_count}`}
+              photoUrl={photo.url}
+              loading={photo.loading}
+              error={photo.error}
+              onRetry={photo.retry}
+              hasPrev={index > 0}
+              hasNext={index < (book.photo_count || book.photos?.length || 1) - 1}
+              onPrev={() => setIndex((value) => Math.max(0, value - 1))}
+              onNext={() =>
+                setIndex((value) =>
+                  Math.min((book.photo_count || book.photos?.length || 1) - 1, value + 1),
+                )
+              }
+              downloadName={
+                selected
+                  ? `${book.machine.name}-${book.log_date}-halaman-${selected.page_number}.${selected.content_type?.split("/")[1] || "jpg"}`
+                  : undefined
+              }
               onClose={() => setZoom(false)}
-            >
-              <img
-                src={photo.url}
-                alt={`Logbook halaman ${selected.page_number}`}
-              />
-            </Dialog>
+            />
           )}
           {confirm && (
             <Dialog

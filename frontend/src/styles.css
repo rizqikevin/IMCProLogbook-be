@@ -889,11 +889,73 @@
   }
   .photo-dialog {
     width: min(1100px, calc(100% - 2rem));
+    max-height: calc(100dvh - 2rem);
   }
+  .photo-dialog-subtitle {
+    font-size: 0.84rem;
+    color: var(--muted);
+    margin-top: -0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .photo-dialog-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    max-height: min(65vh, 660px);
+    background: #eef2ec;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 0.5rem;
+  }
+  .photo-dialog-stage img,
   .photo-dialog > img {
-    margin: auto;
+    max-width: 100%;
+    max-height: min(65vh, 660px);
     width: auto;
-    max-height: none;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    margin: auto;
+  }
+  .photo-dialog-caption {
+    font-size: 0.88rem;
+    color: var(--ink);
+    background: var(--paper);
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin: 0.75rem 0 0 0;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 90px;
+    overflow-y: auto;
+  }
+  .photo-dialog-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--line);
+  }
+  .photo-dialog-pager {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .photo-dialog-counter {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 0 0.25rem;
+    min-width: 70px;
+    text-align: center;
   }
 }
 
@@ -1223,6 +1285,27 @@
     }
     .dialog-actions {
       flex-direction: column-reverse;
+    }
+    .photo-dialog-stage {
+      min-height: 200px;
+      max-height: 50vh;
+      padding: 0.25rem;
+    }
+    .photo-dialog-stage img {
+      max-height: 50vh;
+    }
+    .photo-dialog-nav {
+      flex-direction: column-reverse;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+    .photo-dialog-pager {
+      justify-content: space-between;
+      width: 100%;
+    }
+    .photo-dialog-nav a.button {
+      width: 100%;
+      justify-content: center;
     }
   }
   @media (max-width: 380px) {

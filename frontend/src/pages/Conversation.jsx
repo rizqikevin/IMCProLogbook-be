@@ -1,14 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import { useMachines } from "../hooks";
+import { useMachines, usePhotoUrl } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate, formatTime, validateSelection } from "../lib/format";
-import { mergeMessages, messageForm, textLimit, validateMessage } from "../lib/messages";
+import { flattenPhotos, mergeMessages, messageForm, textLimit, validateMessage } from "../lib/messages";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 import { useMessageDraft } from "../components/MessageDrafts";
 import MachinePhoto from "../components/MachinePhoto";
 import MessagePhoto from "../components/MessagePhoto";
+import PhotoDialog from "../components/PhotoDialog";
 import Camera from "../components/Camera";
 
 const dayFormat = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
@@ -255,6 +256,11 @@ function MachineConversation({ machine }) {
 
   const count = Array.from(draft.text).length;
   const items = state.items.filter((message) => !deleted.current.has(String(message.id)));
+  const allPhotos = useMemo(() => flattenPhotos(items), [items]);
+  const [activePhotoId, setActivePhotoId] = useState(null);
+  const activeIndex = allPhotos.findIndex((p) => String(p.id) === String(activePhotoId));
+  const activePhoto = activeIndex >= 0 ? allPhotos[activeIndex] : null;
+  const viewerPhoto = usePhotoUrl(activePhoto?.url);
   return (
     <div className="conversation-page" ref={shell}>
       <header className="conversation-heading">
@@ -291,7 +297,7 @@ function MachineConversation({ machine }) {
                   <header className="message-meta"><strong>{own ? "Anda" : message.author.name}</strong></header>
                   {message.legacy_archive && <div className="legacy-message"><span>Arsip foto · {formatDate(message.legacy_archive.log_date)} · {message.legacy_archive.shift.name}</span><Link to={`/logbooks/${message.legacy_archive.id}`}>Buka arsip lama</Link></div>}
                   {message.text !== "" && <p className="message-text">{message.text}</p>}
-                  {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} />)}</div>}
+                  {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} onOpen={() => setActivePhotoId(photo.id)} />)}</div>}
                   <footer className="message-footer">
                     <time className="message-time" dateTime={message.created_at} title={formatTime(message.created_at)}>{clockFormat.format(new Date(message.created_at))}</time>
                     {own && !message.legacy_archive && <button type="button" className="icon-button message-delete" disabled={deleting} aria-label={`Hapus pesan Anda, ${formatTime(message.created_at)}`} title="Hapus pesan" onClick={(event) => { deleteTrigger.current = event.currentTarget; setDeleteError(null); setDeleteStatus(""); setConfirmDelete(message); }}><Icon name="trash" size={16} /></button>}
@@ -332,6 +338,24 @@ function MachineConversation({ machine }) {
         </div>
       </Dialog>}
       {cameraOpen && <Camera onClose={() => setCameraOpen(false)} onCapture={handleCameraCapture} onRemove={(photo) => { release(photo); update(machineId, { photos: draft.photos.filter((item) => item !== photo) }); setSelectionError(""); }} photos={draft.photos} maximum={20} />}
+      {activePhoto && (
+        <PhotoDialog
+          title={`Foto ${activePhoto.page_number}${activePhoto.totalInMessage > 1 ? ` dari ${activePhoto.totalInMessage}` : ""}`}
+          subtitle={`${activePhoto.messageAuthor} · ${formatDate(activePhoto.messageTime)} ${clockFormat.format(new Date(activePhoto.messageTime))}`}
+          caption={activePhoto.messageText || null}
+          counterText={`${activeIndex + 1} dari ${allPhotos.length}`}
+          photoUrl={viewerPhoto.url}
+          loading={viewerPhoto.loading}
+          error={viewerPhoto.error}
+          onRetry={viewerPhoto.retry}
+          hasPrev={activeIndex > 0}
+          hasNext={activeIndex < allPhotos.length - 1}
+          onPrev={() => setActivePhotoId(allPhotos[activeIndex - 1]?.id)}
+          onNext={() => setActivePhotoId(allPhotos[activeIndex + 1]?.id)}
+          downloadName={`foto-${activePhoto.id}.${activePhoto.content_type?.split("/")[1] || "jpg"}`}
+          onClose={() => setActivePhotoId(null)}
+        />
+      )}
     </div>
   );
 }
