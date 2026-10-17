@@ -1,47 +1,84 @@
-import { useEffect, useState } from "react";
-import { requestPhoto } from "../lib/api";
-import { ErrorNotice, Loading } from "./common";
+import { useEffect, useRef, useState } from "react";
+import { usePhotoUrl } from "../hooks";
+import { ErrorNotice, Icon, Loading } from "./common";
 import PhotoDialog from "./PhotoDialog";
 
 export default function MessagePhoto({ photo, onOpen }) {
-  const [state, setState] = useState({ loading: true, url: "", error: null });
-  const [attempt, setAttempt] = useState(0);
+  const containerRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
-    const controller = new AbortController();
-    let url = "";
-    setState({ loading: true, url: "", error: null });
-    Promise.resolve().then(() => requestPhoto(photo.url, controller.signal))
-      .then((blob) => {
-        if (controller.signal.aborted) return;
-        url = URL.createObjectURL(blob);
-        setState({ loading: false, url, error: null });
-      })
-      .catch((error) => {
-        if (error.name !== "AbortError") setState({ loading: false, url: "", error });
-      });
-    return () => { controller.abort(); if (url) URL.revokeObjectURL(url); };
-  }, [photo.url, attempt]);
+    if (isVisible) return;
+    const element = containerRef.current;
+    if (!element || typeof IntersectionObserver === "undefined") {
+      setIsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry && (entry.isIntersecting || entry.intersectionRatio > 0)) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isVisible]);
+
+  const { url, loading, error, retry } = usePhotoUrl(
+    isVisible ? photo.url : null,
+  );
+
   return (
-    <div className="message-photo">
-      {state.loading ? <Loading>Memuat foto {photo.page_number}…</Loading> : state.error ?
-        <ErrorNotice error={state.error} onRetry={() => setAttempt((value) => value + 1)} /> :
+    <div ref={containerRef} className="message-photo">
+      {error ? (
+        <div className="message-photo-error">
+          <ErrorNotice error={error} onRetry={retry} />
+        </div>
+      ) : (
         <button
           type="button"
           className="message-photo-open"
+          onFocus={() => setIsVisible(true)}
           onClick={() => {
+            setIsVisible(true);
             if (onOpen) onOpen(photo);
             else setOpen(true);
           }}
           aria-label={`Perbesar foto ${photo.page_number}`}
         >
-          <img src={state.url} alt={`Foto ${photo.page_number}`} loading="lazy" />
+          {!isVisible ? (
+            <div className="message-photo-placeholder" aria-hidden="true">
+              <Icon name="camera" size={24} />
+            </div>
+          ) : loading || !url ? (
+            <div
+              className="message-photo-placeholder"
+              aria-label={`Memuat foto ${photo.page_number}…`}
+            >
+              <Loading>Memuat foto {photo.page_number}…</Loading>
+            </div>
+          ) : (
+            <img
+              src={url}
+              alt={`Foto ${photo.page_number}`}
+              loading="lazy"
+              decoding="async"
+            />
+          )}
           <span>Foto {photo.page_number} · Perbesar</span>
-        </button>}
+        </button>
+      )}
       {!onOpen && open && (
         <PhotoDialog
           title={`Foto ${photo.page_number}`}
-          photoUrl={state.url}
+          photoUrl={url}
           counterText={`Foto ${photo.page_number}`}
           downloadName={`foto-${photo.id}.${photo.content_type?.split("/")[1] || "jpg"}`}
           onClose={() => setOpen(false)}

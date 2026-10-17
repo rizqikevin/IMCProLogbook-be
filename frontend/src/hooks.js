@@ -106,47 +106,37 @@ export function usePhoto(bookId, photoId) {
   return { ...state, retry: () => setAttempt((value) => value + 1) };
 }
 
-const photoBlobCache = new Map();
-
 export function usePhotoUrl(url) {
-  const [state, setState] = useState(() => ({
-    url: photoBlobCache.has(url) ? photoBlobCache.get(url) : "",
-    loading: Boolean(url) && !photoBlobCache.has(url),
-    error: null,
-  }));
+  const [state, setState] = useState({ source: null, url: "", loading: false, error: null });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!url) {
-      setState({ url: "", loading: false, error: null });
-      return;
-    }
-    if (photoBlobCache.has(url)) {
-      setState({ url: photoBlobCache.get(url), loading: false, error: null });
+      setState({ source: null, url: "", loading: false, error: null });
       return;
     }
     const controller = new AbortController();
-    setState({ url: "", loading: true, error: null });
+    let objectUrl = "";
+    setState({ source: url, url: "", loading: true, error: null });
     Promise.resolve()
       .then(() => requestPhoto(url, controller.signal))
       .then((blob) => {
         if (controller.signal.aborted) return;
-        if (photoBlobCache.size >= 50) {
-          const oldestKey = photoBlobCache.keys().next().value;
-          URL.revokeObjectURL(photoBlobCache.get(oldestKey));
-          photoBlobCache.delete(oldestKey);
-        }
-        const objectUrl = URL.createObjectURL(blob);
-        photoBlobCache.set(url, objectUrl);
-        setState({ url: objectUrl, loading: false, error: null });
+        objectUrl = URL.createObjectURL(blob);
+        setState({ source: url, url: objectUrl, loading: false, error: null });
       })
       .catch((error) => {
-        if (error.name !== "AbortError") {
-          setState({ url: "", loading: false, error });
-        }
+        if (!controller.signal.aborted)
+          setState({ source: url, url: "", loading: false, error });
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [url, attempt]);
 
-  return { ...state, retry: () => setAttempt((value) => value + 1) };
+  const current = url && state.source === url
+    ? state
+    : { url: "", loading: Boolean(url), error: null };
+  return { ...current, retry: () => setAttempt((value) => value + 1) };
 }

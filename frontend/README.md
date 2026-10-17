@@ -47,6 +47,19 @@ untuk memeriksa seluruh foto; **Hapus foto**, lalu potret lagi untuk menggantiny
 **Selesai** kembali ke chat. Tutup atau Escape juga mempertahankan foto yang selesai
 diambil. Foto belum diunggah sampai **Kirim pesan** ditekan.
 
+Foto percakapan baru diunduh saat masuk area terlihat, dengan margin 300 px,
+atau saat tombol foto menerima fokus/ditekan. Placeholder menjaga ruang foto
+sebelum unduhan dimulai. Browser tanpa `IntersectionObserver` memuat foto langsung.
+Jika unduhan gagal, tekan **Coba lagi** pada foto. Membuka penampil mengunduh foto
+yang dipilih saja; foto sebelumnya/berikutnya tidak diunduh lebih awal. Blob URL
+dimiliki masing-masing tampilan dan dilepas saat foto berganti atau tampilan ditutup.
+
+Smoke Chromium dengan API mock (20 foto): pembukaan percakapan meminta 2 foto
+terakhir; scroll ke awal menambah 2 foto pertama, bukan seluruh 20 foto. Respons
+500 pada salah satu foto pulih setelah **Coba lagi**. Penampil menampilkan foto
+terpilih dan dapat ditutup dengan Escape. Smoke ini tidak menggantikan E2E backend
+PostgreSQL.
+
 **Ganti kamera** beralih depan/belakang. Jika izin ditolak, izinkan kamera melalui
 pengaturan peramban lalu **Coba lagi**, atau gunakan **Pilih dari galeri**. Menutup
 kamera atau berganti kamera menghentikan stream, termasuk izin yang baru selesai

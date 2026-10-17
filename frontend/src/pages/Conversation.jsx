@@ -341,7 +341,7 @@ function MachineConversation({ machine }) {
       {activePhoto && (
         <PhotoDialog
           title={`Foto ${activePhoto.page_number}${activePhoto.totalInMessage > 1 ? ` dari ${activePhoto.totalInMessage}` : ""}`}
-          subtitle={`${activePhoto.messageAuthor} · ${formatDate(activePhoto.messageTime)} ${clockFormat.format(new Date(activePhoto.messageTime))}`}
+          subtitle={`${activePhoto.messageAuthor} · ${formatTime(activePhoto.messageTime)}`}
           caption={activePhoto.messageText || null}
           counterText={`${activeIndex + 1} dari ${allPhotos.length}`}
           photoUrl={viewerPhoto.url}

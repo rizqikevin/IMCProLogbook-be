@@ -39,6 +39,31 @@
   .message-photos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.5rem; margin-top: 0.45rem; }
   .message-photo { min-width: 0; min-height: 216px; }
   .message-photo > .loading { min-height: 216px; }
+  .message-photo-placeholder {
+    width: 100%;
+    height: 170px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2ec;
+    color: var(--muted);
+  }
+  .message-photo-placeholder .loading {
+    min-height: 100%;
+    padding: 0.5rem;
+    font-size: 0.78rem;
+    gap: 0.5rem;
+  }
+  .message-photo-error {
+    min-height: 216px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: #fff;
+    border: 1px solid var(--control);
+    border-radius: 6px;
+  }
   .message-photo-open { width: 100%; padding: 0; border: 1px solid var(--control); border-radius: 6px; background: #fff; }
   .message-photo-open img { width: 100%; height: 170px; object-fit: contain; }
   .message-photo-open span { display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: 0.75rem; }
