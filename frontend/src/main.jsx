@@ -4,6 +4,7 @@ import { createBrowserRouter, Link, RouterProvider } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./queryClient";
 import { AuthProvider, RequireAuth } from "./auth";
+import { ThemeProvider } from "./theme";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Archives from "./pages/Archives";
@@ -58,9 +59,11 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

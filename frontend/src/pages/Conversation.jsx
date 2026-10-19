@@ -11,6 +11,7 @@ import MachinePhoto from "../components/MachinePhoto";
 import MessagePhoto from "../components/MessagePhoto";
 import PhotoDialog from "../components/PhotoDialog";
 import Camera from "../components/Camera";
+import { ThemeToggle } from "../theme";
 
 const dayFormat = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
 const clockFormat = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -319,7 +320,10 @@ function MachineConversation({ machine }) {
         <Link className="icon-button" to="/" aria-label="Pilih mesin lain" title="Pilih mesin lain"><Icon name="back" /></Link>
         <MachinePhoto name={machine.name} decorative />
         <div><h1>{machine.name}</h1><p>Logbook mesin</p></div>
-        <button ref={searchToggle} type="button" className="button button-outline conversation-search-toggle" aria-expanded={searchOpen} aria-controls="conversation-search" onClick={() => searchOpen ? clearSearch(true) : setSearchOpen(true)}>Cari pesan</button>
+        <div className="conversation-heading-actions">
+          <button ref={searchToggle} type="button" className="button button-outline conversation-search-toggle" aria-expanded={searchOpen} aria-controls="conversation-search" onClick={() => searchOpen ? clearSearch(true) : setSearchOpen(true)}>Cari pesan</button>
+          <ThemeToggle />
+        </div>
       </header>
       {searchOpen && <form id="conversation-search" className="conversation-search" role="search" aria-label="Cari pesan mesin" onSubmit={commitSearch} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); clearSearch(true); } }}>
         <label htmlFor="message-search">Cari teks di mesin ini</label>

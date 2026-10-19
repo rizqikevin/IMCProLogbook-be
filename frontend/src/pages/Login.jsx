@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { ErrorNotice, Icon, Loading } from "../components/common";
+import { ThemeToggle } from "../theme";
 
 export default function Login() {
   const { login, status, error: sessionError, retry } = useAuth();
@@ -78,6 +79,9 @@ export default function Login() {
         <p className="login-footnote">Machine Logbook Archive</p>
       </section>
       <section className="login-form-panel">
+        <div className="login-toolbar">
+          <ThemeToggle />
+        </div>
         <div className="login-form-wrap">
           <h2>Masuk ke logbook</h2>
           <p className="muted">Gunakan akun operator atau admin Anda.</p>

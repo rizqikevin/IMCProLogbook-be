@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useMatch } from "react-router-dom";
 import { useAuth } from "../auth";
 import { ErrorNotice, Icon } from "./common";
 import { MessageDrafts } from "./MessageDrafts";
+import { ThemeToggle } from "../theme";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -49,6 +50,7 @@ export default function Layout() {
                 {user.role === "admin" ? "Administrator" : "Operator"}
               </span>
             </div>
+            <ThemeToggle />
               <button
                 className="icon-button"
                 aria-label="Keluar dari akun"

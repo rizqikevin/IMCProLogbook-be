@@ -1,9 +1,11 @@
 /* IMCPro's supplied navy logo anchors the light production workspace. */
 @layer base {
   :root {
+    color-scheme: light;
     color: #202537;
     background: #f4f5f8;
     --paper: #f4f5f8;
+    --surface: #ffffff;
     --ink: #202537;
     --muted: #596176;
     --green: #292475;
@@ -11,6 +13,41 @@
     --green-pale: #eeedf8;
     --line: #dce0e9;
     --control: #80889b;
+    --danger: #aa302b;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    color: #e4e9f2;
+    background: #12151b;
+    --paper: #12151b;
+    --surface: #1a202a;
+    --ink: #e4e9f2;
+    --muted: #95a3b8;
+    --green: #6b93f7;
+    --green-dark: #89adfa;
+    --green-pale: #212b3e;
+    --line: #2b3648;
+    --control: #5e708c;
+    --danger: #ff6b6b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      color: #e4e9f2;
+      background: #12151b;
+      --paper: #12151b;
+      --surface: #1a202a;
+      --ink: #e4e9f2;
+      --muted: #95a3b8;
+      --green: #6b93f7;
+      --green-dark: #89adfa;
+      --green-pale: #212b3e;
+      --line: #2b3648;
+      --control: #5e708c;
+      --danger: #ff6b6b;
+    }
   }
 }
 @layer components {
@@ -85,7 +122,7 @@
     background: var(--green-pale);
   }
   .filter-bar {
-    background: white;
+    background: var(--surface);
     padding: 1.2rem;
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -98,7 +135,7 @@
   }
   .login-page {
     grid-template-columns: 1.05fr 1fr;
-    background: white;
+    background: var(--paper);
   }
   .login-story {
     background: #eeedf5;
@@ -266,7 +303,7 @@
     flex-direction: column;
     gap: 0;
     padding: 0;
-    background: white;
+    background: var(--surface);
     border: 1px solid var(--control);
     border-radius: 10px;
     overflow: hidden;
@@ -304,6 +341,104 @@
     background: var(--green);
     border-color: var(--green);
     color: white;
+  }
+  :root[data-theme="dark"] .brand-logo {
+    background: #ffffff;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  :root[data-theme="dark"] .archive-row:hover {
+    background: var(--green-pale);
+  }
+  :root[data-theme="dark"] .login-story {
+    background: #161b24;
+    border-color: var(--line);
+  }
+  :root[data-theme="dark"] .login-title h1 {
+    color: var(--ink);
+  }
+  :root[data-theme="dark"] .login-register > span {
+    border-color: var(--line);
+  }
+  :root[data-theme="dark"] .machine-photo-surface {
+    background: #202732;
+  }
+  :root[data-theme="dark"] .machine-option.selected {
+    background: var(--green);
+    border-color: var(--green);
+    color: #0b1220;
+  }
+  :root[data-theme="dark"] .machine-option.selected .machine-number {
+    color: #0b1220;
+  }
+  :root[data-theme="dark"] .machine-option.selected .machine-photo-surface {
+    background: #28374a;
+  }
+  :root[data-theme="dark"] .button-primary {
+    color: #0b1220;
+    font-weight: 650;
+    background: var(--green);
+    border-color: var(--green);
+  }
+  :root[data-theme="dark"] .button-primary:hover:not(:disabled) {
+    background: var(--green-dark);
+    border-color: var(--green-dark);
+  }
+  :root[data-theme="dark"] .button-danger {
+    color: #0b1220;
+    font-weight: 650;
+    background: var(--danger);
+    border-color: var(--danger);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand-logo {
+      background: #ffffff;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    :root:not([data-theme="light"]) .archive-row:hover {
+      background: var(--green-pale);
+    }
+    :root:not([data-theme="light"]) .login-story {
+      background: #161b24;
+      border-color: var(--line);
+    }
+    :root:not([data-theme="light"]) .login-title h1 {
+      color: var(--ink);
+    }
+    :root:not([data-theme="light"]) .login-register > span {
+      border-color: var(--line);
+    }
+    :root:not([data-theme="light"]) .machine-photo-surface {
+      background: #202732;
+    }
+    :root:not([data-theme="light"]) .machine-option.selected {
+      background: var(--green);
+      border-color: var(--green);
+      color: #0b1220;
+    }
+    :root:not([data-theme="light"]) .machine-option.selected .machine-number {
+      color: #0b1220;
+    }
+    :root:not([data-theme="light"]) .machine-option.selected .machine-photo-surface {
+      background: #28374a;
+    }
+    :root:not([data-theme="light"]) .button-primary {
+      color: #0b1220;
+      font-weight: 650;
+      background: var(--green);
+      border-color: var(--green);
+    }
+    :root:not([data-theme="light"]) .button-primary:hover:not(:disabled) {
+      background: var(--green-dark);
+      border-color: var(--green-dark);
+    }
+    :root:not([data-theme="light"]) .button-danger {
+      color: #0b1220;
+      font-weight: 650;
+      background: var(--danger);
+      border-color: var(--danger);
+    }
   }
   @media (max-width: 1100px) {
     .machine-buttons {
