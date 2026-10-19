@@ -23,8 +23,8 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 	if machineID <= 0 {
 		return domain.Message{}, invalid("machine_id must be a positive integer")
 	}
-	if !utf8.ValidString(text) || strings.ContainsRune(text, 0) || utf8.RuneCountInString(text) > 20000 {
-		return domain.Message{}, invalid("text must contain at most 20000 Unicode characters and no NUL characters")
+	if err := validateMessageText(text); err != nil {
+		return domain.Message{}, err
 	}
 	if strings.TrimSpace(text) == "" && len(uploads) == 0 {
 		return domain.Message{}, invalid("nonblank text or at least one photo is required")
@@ -60,6 +60,31 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 		return domain.Message{}, fmt.Errorf("create message: %w", err)
 	}
 	return withMessagePhotoURLs(created), nil
+}
+
+func validateMessageText(text string) error {
+	if !utf8.ValidString(text) || strings.ContainsRune(text, 0) || utf8.RuneCountInString(text) > 20000 {
+		return invalid("text must contain at most 20000 Unicode characters and no NUL characters")
+	}
+	return nil
+}
+
+func (s *Logbooks) EditMessage(ctx context.Context, user domain.User, machineID int64, messageID, text string) (domain.Message, error) {
+	if !validUUID(user.ID) {
+		return domain.Message{}, domain.ErrUnauthorized
+	}
+	if machineID <= 0 || !validUUID(messageID) {
+		return domain.Message{}, invalid("invalid machine or message ID")
+	}
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	if err := validateMessageText(text); err != nil {
+		return domain.Message{}, err
+	}
+	message, err := s.repo.EditMessage(ctx, machineID, messageID, user.ID, text)
+	if err != nil {
+		return domain.Message{}, err
+	}
+	return withMessagePhotoURLs(message), nil
 }
 
 func ParseMessageCursor(raw string) (*domain.MessageCursor, error) {

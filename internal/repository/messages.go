@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"machine-logbook/internal/domain"
@@ -77,7 +78,7 @@ func (r *Repository) ListMessages(ctx context.Context, filter domain.MessageFilt
 	if filter.Cursor != nil {
 		cursorTime, cursorID = filter.Cursor.CreatedAt, filter.Cursor.ID
 	}
-	rows, err := tx.Query(ctx, `SELECT t.id::text, t.machine_id, t.text, t.created_by::text, u.name, t.created_at,
+	rows, err := tx.Query(ctx, `SELECT t.id::text, t.machine_id, t.text, t.created_by::text, u.name, t.created_at, t.edited_at,
 		COALESCE(b.id::text, ''), COALESCE(to_char(b.log_date, 'YYYY-MM-DD'), ''), COALESCE(s.id, 0), COALESCE(s.name, '')
 		FROM machine_messages t JOIN users u ON u.id = t.created_by
 		LEFT JOIN logbooks b ON b.id = t.legacy_archive_id LEFT JOIN shifts s ON s.id = b.shift_id
@@ -92,7 +93,7 @@ func (r *Repository) ListMessages(ctx context.Context, filter domain.MessageFilt
 		var message domain.Message
 		var legacy domain.LegacyArchive
 		if err := rows.Scan(&message.ID, &message.MachineID, &message.Text, &message.Author.ID, &message.Author.Name,
-			&message.CreatedAt, &legacy.ID, &legacy.LogDate, &legacy.Shift.ID, &legacy.Shift.Name); err != nil {
+			&message.CreatedAt, &message.EditedAt, &legacy.ID, &legacy.LogDate, &legacy.Shift.ID, &legacy.Shift.Name); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -173,4 +174,53 @@ func (r *Repository) DeleteMessage(ctx context.Context, machineID int64, message
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (r *Repository) EditMessage(ctx context.Context, machineID int64, messageID, userID, text string) (domain.Message, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return domain.Message{}, err
+	}
+	defer tx.Rollback(ctx)
+	var message domain.Message
+	err = tx.QueryRow(ctx, `SELECT m.id::text, m.machine_id, m.text, m.created_by::text, u.name, m.created_at, m.edited_at
+		FROM messages m JOIN machines machine ON machine.id = m.machine_id JOIN users u ON u.id = m.created_by
+		WHERE m.id = $1::uuid AND m.machine_id = $2 AND machine.active FOR UPDATE OF m`, messageID, machineID).
+		Scan(&message.ID, &message.MachineID, &message.Text, &message.Author.ID, &message.Author.Name, &message.CreatedAt, &message.EditedAt)
+	if err != nil {
+		return domain.Message{}, mapError(err)
+	}
+	if message.Author.ID != userID {
+		return domain.Message{}, domain.ErrForbidden
+	}
+	message.Photos = make([]domain.Photo, 0)
+	rows, err := tx.Query(ctx, `SELECT `+photoColumns+` FROM message_photos WHERE message_id = $1::uuid ORDER BY page_number`, messageID)
+	if err != nil {
+		return domain.Message{}, err
+	}
+	for rows.Next() {
+		photo, err := scanPhoto(rows)
+		if err != nil {
+			rows.Close()
+			return domain.Message{}, err
+		}
+		message.Photos = append(message.Photos, photo)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return domain.Message{}, err
+	}
+	if strings.TrimSpace(text) == "" && len(message.Photos) == 0 {
+		return domain.Message{}, &domain.ValidationError{Message: "nonblank text or at least one photo is required"}
+	}
+	if text != message.Text {
+		if err := tx.QueryRow(ctx, `UPDATE messages SET text = $2, edited_at = clock_timestamp() WHERE id = $1::uuid RETURNING edited_at`, messageID, text).Scan(&message.EditedAt); err != nil {
+			return domain.Message{}, mapError(err)
+		}
+		message.Text = text
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.Message{}, err
+	}
+	return message, nil
 }

@@ -7,8 +7,8 @@ info:
     Pesan menerima teks, foto, atau keduanya tanpa tanggal dan shift. Penulis serta
     waktu ditentukan server. Arsip lama tampil sebagai pesan teks kosong dengan
     legacy_archive, waktu asli, penulis asli, dan seluruh foto asli.
-    Pesan baru tidak mendukung edit, import, realtime, atau pengiriman idempoten.
-    Pesan native dapat dihapus hanya oleh pengirim, tanpa pengecualian untuk admin.
+    Pesan baru tidak mendukung import, realtime, atau pengiriman idempoten.
+    Teks pesan native dapat diedit dan pesan dihapus hanya oleh pengirim, tanpa pengecualian untuk admin.
 
     Arsip foto logbook dengan login per operator. Operator dan admin dapat membaca,
     membuat, dan menambah foto pada semua logbook; penghapusan memerlukan admin.
@@ -156,6 +156,53 @@ paths:
         in: path
         required: true
         schema: { $ref: '#/components/schemas/ID' }
+    patch:
+      tags: [Messages]
+      operationId: editMachineMessage
+      summary: Mengubah teks pesan native milik pengirim
+      description: |
+        Hanya pengirim boleh mengubah teks, tanpa batas waktu. Admin tidak boleh
+        mengubah pesan pengguna lain. Arsip legacy tidak dapat diubah. Mesin harus aktif.
+        Teks harus valid UTF-8, tanpa NUL, maksimum 20000 karakter Unicode setelah
+        normalisasi CRLF menjadi LF. Teks kosong atau whitespace hanya boleh jika ada foto.
+        Foto, created_at, dan urutan timeline tetap. edited_at diisi waktu server hanya
+        jika teks normalisasi berubah; permintaan identik tidak mengubah edited_at.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 20000 }
+      responses:
+        '200':
+          description: Pesan lengkap dengan foto yang tetap dan edited_at nullable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Pengguna bukan pengirim pesan, termasuk admin.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '404':
+          description: Pesan tidak ada, mesin berbeda atau tidak aktif, atau arsip legacy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '413':
+          description: Body melebihi 256 KiB.
+        '415':
+          description: Content-Type harus application/json.
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
       tags: [Messages]
       operationId: deleteMachineMessage
@@ -810,13 +857,14 @@ components:
         shift: { $ref: '#/components/schemas/Shift' }
     Message:
       type: object
-      required: [id, machine_id, text, author, created_at, photos]
+      required: [id, machine_id, text, author, created_at, edited_at, photos]
       properties:
         id: { $ref: '#/components/schemas/ID' }
         machine_id: { type: integer, format: int64, minimum: 1 }
         text: { type: string, maxLength: 20000 }
         author: { $ref: '#/components/schemas/MessageAuthor' }
         created_at: { type: string, format: date-time }
+        edited_at: { type: string, format: date-time, nullable: true, description: Waktu edit terakhir dari server; null sebelum perubahan teks. }
         photos:
           type: array
           items: { $ref: '#/components/schemas/Photo' }

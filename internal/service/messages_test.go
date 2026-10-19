@@ -17,6 +17,7 @@ type messageRepoStub struct {
 	createMessage func(context.Context, domain.Message) (domain.Message, error)
 	listMessages  func(context.Context, domain.MessageFilter) ([]domain.Message, error)
 	deleteMessage func(context.Context, int64, string, string) error
+	editMessage   func(context.Context, int64, string, string, string) (domain.Message, error)
 }
 
 func (r *messageRepoStub) CheckMachine(ctx context.Context, id int64) error {
@@ -34,6 +35,38 @@ func (r *messageRepoStub) ListMessages(ctx context.Context, filter domain.Messag
 
 func (r *messageRepoStub) DeleteMessage(ctx context.Context, machineID int64, messageID, userID string) error {
 	return r.deleteMessage(ctx, machineID, messageID, userID)
+}
+
+func (r *messageRepoStub) EditMessage(ctx context.Context, machineID int64, messageID, userID, text string) (domain.Message, error) {
+	return r.editMessage(ctx, machineID, messageID, userID, text)
+}
+
+func TestEditMessageValidationAndNormalization(t *testing.T) {
+	for _, text := range []string{string([]byte{0xff}), "nul\x00", strings.Repeat("界", 20001)} {
+		repo := &messageRepoStub{editMessage: func(context.Context, int64, string, string, string) (domain.Message, error) {
+			t.Fatal("invalid text reached repository")
+			return domain.Message{}, nil
+		}}
+		_, err := testLogbooks(repo, nil).EditMessage(context.Background(), domain.User{ID: testUserID}, 1, testBookID, text)
+		var validation *domain.ValidationError
+		if !errors.As(err, &validation) {
+			t.Fatalf("invalid text accepted: %v", err)
+		}
+	}
+	for _, text := range []string{"", " \t", strings.Repeat("界", 20000), strings.Repeat("\r\n", 20000)} {
+		calls := 0
+		repo := &messageRepoStub{editMessage: func(_ context.Context, machineID int64, messageID, userID, normalized string) (domain.Message, error) {
+			calls++
+			if machineID != 1 || messageID != testBookID || userID != testUserID || normalized != strings.ReplaceAll(text, "\r\n", "\n") {
+				t.Fatal("incorrect edit arguments")
+			}
+			return domain.Message{ID: messageID, MachineID: machineID, Text: normalized, Photos: []domain.Photo{{ID: "photo"}}}, nil
+		}}
+		message, err := testLogbooks(repo, nil).EditMessage(context.Background(), domain.User{ID: testUserID}, 1, testBookID, text)
+		if err != nil || calls != 1 || message.Photos[0].URL != "/api/v1/machines/1/messages/"+testBookID+"/photos/photo" {
+			t.Fatalf("edit result: %+v %v", message, err)
+		}
+	}
 }
 
 func TestDeleteMessageValidatesBeforeRepository(t *testing.T) {

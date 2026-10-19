@@ -11,6 +11,49 @@ import (
 	"machine-logbook/internal/domain"
 )
 
+func TestIntegrationEditMessagePreservesHistoryAndRejectsEmptyText(t *testing.T) {
+	repo, pool, user := testRepository(t)
+	ctx := context.Background()
+	message, err := repo.CreateMessage(ctx, domain.Message{ID: newID(), MachineID: 1, Text: "original", Author: domain.MessageAuthor{ID: user.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(ctx, `UPDATE messages SET created_at = $1 WHERE id = $2`, stamp, message.ID); err != nil {
+		t.Fatal(err)
+	}
+	unchanged, err := repo.EditMessage(ctx, 1, message.ID, user.ID, "original")
+	if err != nil || unchanged.EditedAt != nil {
+		t.Fatalf("initial no-op: %+v %v", unchanged, err)
+	}
+	for _, text := range []string{"", " \t\n", "\u2003"} {
+		_, err := repo.EditMessage(ctx, 1, message.ID, user.ID, text)
+		var validation *domain.ValidationError
+		if !errors.As(err, &validation) {
+			t.Fatalf("blank text %q accepted: %v", text, err)
+		}
+	}
+	if _, err := repo.EditMessage(ctx, 1, message.ID, newID(), "intrusion"); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("non-owner edit: %v", err)
+	}
+	items, err := repo.ListMessages(ctx, domain.MessageFilter{MachineID: 1, Limit: 20})
+	if err != nil || len(items) != 1 || items[0].Text != "original" || items[0].EditedAt != nil {
+		t.Fatalf("rejected edits persisted: %+v %v", items, err)
+	}
+	edited, err := repo.EditMessage(ctx, 1, message.ID, user.ID, "updated")
+	if err != nil || edited.EditedAt == nil || !edited.EditedAt.After(stamp) || !edited.CreatedAt.Equal(stamp) || edited.Photos == nil || edited.Author.Name != user.Name {
+		t.Fatalf("old message edit: %+v %v", edited, err)
+	}
+	unchanged, err = repo.EditMessage(ctx, 1, message.ID, user.ID, "updated")
+	if err != nil || unchanged.EditedAt == nil || !unchanged.EditedAt.Equal(*edited.EditedAt) {
+		t.Fatalf("no-op changed timestamp: %+v %v", unchanged, err)
+	}
+	items, err = repo.ListMessages(ctx, domain.MessageFilter{MachineID: 1, Limit: 20})
+	if err != nil || len(items) != 1 || items[0].Text != "updated" || items[0].EditedAt == nil || !items[0].EditedAt.Equal(*edited.EditedAt) || !items[0].CreatedAt.Equal(stamp) {
+		t.Fatalf("edit not persisted: %+v %v", items, err)
+	}
+}
+
 func TestIntegrationMessagesPreserveArchivesAndPageByStableKey(t *testing.T) {
 	repo, pool, user := testRepository(t)
 	ctx := context.Background()
@@ -188,6 +231,13 @@ func TestIntegrationMessageMigrationPreservesExistingArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, strings.Split(string(source), "-- +goose Down")[0]); err != nil {
+		t.Fatal(err)
+	}
+	editMigration, err := os.ReadFile("../../migrations/00005_message_edits.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, strings.Split(string(editMigration), "-- +goose Down")[0]); err != nil {
 		t.Fatal(err)
 	}
 	page, err := repo.ListMessages(ctx, domain.MessageFilter{MachineID: 1, Limit: 20})

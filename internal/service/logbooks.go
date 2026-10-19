@@ -29,6 +29,7 @@ type Repository interface {
 	CheckReferences(context.Context, int64, int64) error
 	CheckMachine(context.Context, int64) error
 	CreateMessage(context.Context, domain.Message) (domain.Message, error)
+	EditMessage(context.Context, int64, string, string, string) (domain.Message, error)
 	ListMessages(context.Context, domain.MessageFilter) ([]domain.Message, error)
 	MessagePhoto(context.Context, int64, string, string) (domain.Photo, error)
 	DeleteMessage(context.Context, int64, string, string) error

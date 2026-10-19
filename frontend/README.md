@@ -39,6 +39,7 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 7. Tekan **Cari pesan**, isi teks, lalu tekan **Cari** atau Enter. Pencarian mencakup seluruh riwayat teks mesin ini, bukan hanya pesan yang sudah dimuat. **Muat hasil sebelumnya** membuka kecocokan yang lebih lama.
 8. **Reset**, **Tutup pencarian**, atau Escape mengembalikan riwayat lengkap. Kata pencarian yang sudah dikirim tersimpan pada URL `?q=`, sehingga reload dan tombol Back/Forward memulihkan filter. Mengetik saja tidak mengubah hasil. Draft pesan dan foto tidak berubah saat mencari.
 9. Pada pesan Anda, tekan **Hapus pesan**, lalu konfirmasi **Hapus pesan** dalam dialog. Penghapusan permanen mencakup seluruh foto pesan. **Batal** atau Escape menutup dialog dan mengembalikan fokus; saat penghapusan berlangsung, kontrol dan penutupan dialog dinonaktifkan. Jika gagal, pesan dan dialog tetap ada; gunakan **Coba hapus lagi**. Setelah sukses, baris pesan hilang tanpa menghapus draft teks atau foto.
+10. Pada pesan Anda, tekan **Edit**, ubah **Teks pesan**, lalu **Simpan perubahan**. **Batal** atau Escape membatalkan perubahan tanpa mengubah draft kiriman. Foto pesan tetap sama. Pesan menampilkan **Diedit** setelah perubahan teks tersimpan, termasuk setelah reload; menyimpan teks yang sama tidak menandainya. Tidak ada batas waktu edit. Teks boleh dikosongkan hanya jika pesan memiliki foto.
 
 **Ambil foto dari kamera** membuka pratinjau dengan tombol **Ambil foto** tetap
 terjangkau. Ambil beberapa foto tanpa membuka ulang kamera. Jumlah dan thumbnail
@@ -84,7 +85,7 @@ pembesaran paksa. Ketajaman tetap bergantung pada fokus, cahaya, dan kemampuan k
 
 Teks ditampilkan sebagai teks biasa, bukan HTML atau Markdown. Baris baru, spasi,
 dan tab tetap disimpan. Satu kiriman menjadi satu pesan; tidak ada parser WhatsApp,
-impor, sinkronisasi realtime, atau edit pesan.
+impor, atau sinkronisasi realtime.
 
 Arsip lama tampil sebagai arsip foto dengan tanggal dan shift aslinya, tanpa teks
 buatan. Tautan `/logbooks/:id` dan navigasi shift lama tetap dapat dibaca. Form
@@ -93,6 +94,8 @@ Admin tetap dapat menghapus arsip lama melalui detail; backend memverifikasi izi
 Tombol hapus pada percakapan hanya tersedia untuk pesan native milik akun aktif,
 bukan pesan pengguna lain atau arsip lama. Admin juga tidak dapat menghapus pesan
 native pengguna lain; izin arsip lama tetap terpisah.
+Edit juga hanya tersedia untuk pesan native milik akun aktif. Backend menolak edit
+pesan pengguna lain, termasuk oleh admin; arsip lama tidak dapat diedit melalui chat.
 
 ## Penyimpanan dan kegagalan pengiriman
 

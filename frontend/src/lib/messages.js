@@ -1,6 +1,12 @@
 export const textLimit = 20_000;
 
+export function normalizeMessageText(text) {
+  return text.replace(/\r\n/g, "\n");
+}
+
 export function validateMessage(text, photos) {
+  text = normalizeMessageText(text);
+  if (text.includes("\0")) return "Pesan tidak boleh berisi karakter NUL.";
   if (Array.from(text).length > textLimit)
     return "Pesan maksimal 20.000 karakter.";
   if (!text.trim() && photos.length === 0)

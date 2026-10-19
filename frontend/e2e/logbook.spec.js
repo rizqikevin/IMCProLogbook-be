@@ -577,3 +577,122 @@ test("search cancels stale pages and retries failures without losing the query",
   await expect(page.locator(".message-text")).toHaveText(["broken"]);
   await expect(page.locator(".message-text").filter({ hasText: "Stale initial" })).toHaveCount(0);
 });
+
+test("message edits preserve photos, order and composer draft across save and reload", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  const initialText = `Catatan sebelum diedit ${Date.now()}`;
+  const updatedText = `Catatan sesudah diedit ${Date.now()}`;
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill(initialText);
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  const original = await send(page);
+  const row = page.locator(".message-entry").filter({ hasText: initialText });
+  const trigger = row.getByRole("button", { name: /^Edit pesan Anda/ });
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill("Draft terpisah");
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Edit pesan", exact: true });
+  const input = dialog.getByLabel("Teks pesan", { exact: true });
+  await expect(input).toHaveValue(original.text);
+  await expect(input).toBeFocused();
+  await input.fill("Batal perubahan");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(row.locator(".message-text")).toHaveText(original.text);
+  await trigger.click();
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(row.getByText("Diedit", { exact: true })).toHaveCount(0);
+  await trigger.click();
+  await input.fill(updatedText);
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.route(`**/api/v1/machines/1/messages/${original.id}`, async (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    expect(route.request().postDataJSON()).toEqual({ text: updatedText });
+    await pending;
+    await route.continue();
+  });
+  const response = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().endsWith(`/messages/${original.id}`));
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog.getByRole("button", { name: "Menyimpan…" })).toBeDisabled();
+  await expect(input).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  release();
+  const savedResponse = await response;
+  expect(savedResponse.status()).toBe(200);
+  const saved = await savedResponse.json();
+  expect(saved.created_at).toBe(original.created_at);
+  expect(saved.photos).toEqual(original.photos);
+  expect(saved.edited_at).toBeTruthy();
+  await expect(dialog).toHaveCount(0);
+  const editedRow = page.locator(".message-entry").filter({ hasText: updatedText });
+  await expect(editedRow.getByText("Diedit", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Pesan untuk MAILENDER 222")).toHaveValue("Draft terpisah");
+  await expect(page.getByRole("img", { name: "Pratinjau foto 1" })).toBeVisible();
+  await accessible(page);
+  await page.reload();
+  await expect(editedRow.getByText("Diedit", { exact: true })).toBeVisible();
+  await editedRow.getByRole("button", { name: /^Edit pesan Anda/ }).click();
+  await input.fill("");
+  const clearedResponse = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().endsWith(`/messages/${original.id}`));
+  await page.unroute(`**/api/v1/machines/1/messages/${original.id}`);
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  const cleared = await (await clearedResponse).json();
+  expect(cleared.text).toBe("");
+  expect(cleared.photos).toEqual(original.photos);
+});
+
+test("message edit validation and failed save retain text without changing saved content", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill(`Pesan validasi edit ${Date.now()}`);
+  const original = await send(page);
+  const row = page.locator(".message-entry").filter({ hasText: original.text });
+  await row.getByRole("button", { name: /^Edit pesan Anda/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit pesan", exact: true });
+  const input = dialog.getByLabel("Teks pesan", { exact: true });
+  await input.fill(" \n");
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Tulis pesan");
+  await input.fill("a".repeat(20_001));
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("20.000");
+  await input.fill("Perubahan belum tersimpan");
+  await page.route(`**/api/v1/machines/1/messages/${original.id}`, (route) => route.request().method() === "PATCH" ? route.fulfill({ status: 403, json: { error: { code: "forbidden" } } }) : route.continue());
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("tidak memiliki izin");
+  await expect(input).toHaveValue("Perubahan belum tersimpan");
+  await expect(row.locator(".message-text")).toHaveText(original.text);
+  await expect(row.getByText("Diedit", { exact: true })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Batal", exact: true }).click();
+  await expect(row.getByRole("button", { name: /^Edit pesan Anda/ })).toBeFocused();
+  await row.getByRole("button", { name: /^Edit pesan Anda/ }).click();
+  const retryText = `Perubahan dicoba lagi ${Date.now()}`;
+  await input.fill(retryText);
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("tidak memiliki izin");
+  await page.unroute(`**/api/v1/machines/1/messages/${original.id}`);
+  await dialog.getByRole("button", { name: "Simpan perubahan" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator(".message-entry").filter({ hasText: retryText }).getByText("Diedit", { exact: true })).toBeVisible();
+});
+
+test("edit action is restricted to owned native messages", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  await page.getByLabel("Pesan untuk MAILENDER 222").fill(`Pesan pemilik ${Date.now()}`);
+  const own = await send(page);
+  const items = [
+    own,
+    { ...own, id: "other-message", text: "Pesan operator lain", author: { id: "other-author", name: "Operator lain" } },
+    { ...own, id: "legacy-message", text: "Arsip milik sendiri", legacy_archive: { id: "legacy", log_date: "2026-01-01", shift: { name: "Pagi" } } },
+  ];
+  await page.route("**/api/v1/machines/1/messages?*", (route) => route.fulfill({ json: { items } }));
+  await page.reload();
+  await expect(page.locator(".message-entry")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: /^Edit pesan Anda/ })).toHaveCount(1);
+  await expect(page.locator(".message-entry").filter({ hasText: own.text }).getByRole("button", { name: /^Edit pesan Anda/ })).toBeVisible();
+});

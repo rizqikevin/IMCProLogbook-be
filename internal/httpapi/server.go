@@ -62,6 +62,7 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("GET /api/v1/shifts", s.authenticated(http.HandlerFunc(s.shifts)))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages", s.authenticated(http.HandlerFunc(s.listMessages)))
 	mux.Handle("POST /api/v1/machines/{machineID}/messages", s.authenticated(s.upload(http.HandlerFunc(s.createMessage))))
+	mux.Handle("PATCH /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.editMessage)))
 	mux.Handle("DELETE /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.deleteMessage)))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}", s.authenticated(http.HandlerFunc(s.messagePhoto)))
 	mux.Handle("GET /api/v1/logbooks", s.authenticated(http.HandlerFunc(s.list)))
@@ -354,7 +355,7 @@ func (s *Server) failure(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, domain.ErrNotFound):
 		problem(w, r, 404, "not_found", "resource not found")
 	case errors.Is(err, domain.ErrForbidden):
-		problem(w, r, 403, "forbidden", "you can only delete your own messages")
+		problem(w, r, 403, "forbidden", "you can only edit or delete your own messages")
 	case errors.Is(err, domain.ErrConflict):
 		problem(w, r, 409, "conflict", domain.ErrConflict.Error())
 	case errors.Is(err, domain.ErrUserExists):

@@ -4,7 +4,7 @@ import { useAuth } from "../auth";
 import { useMachines, usePhotoUrl } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate, formatTime, validateSelection } from "../lib/format";
-import { flattenPhotos, mergeMessages, messageForm, textLimit, validateMessage } from "../lib/messages";
+import { flattenPhotos, mergeMessages, messageForm, normalizeMessageText, textLimit, validateMessage } from "../lib/messages";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
 import { useMessageDraft } from "../components/MessageDrafts";
 import MachinePhoto from "../components/MachinePhoto";
@@ -51,6 +51,16 @@ function MachineConversation({ machine }) {
   const deletePending = useRef(false);
   const deleteTrigger = useRef(null);
   const restoreDeleteFocus = useRef(false);
+  const [editing, setEditing] = useState(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState(null);
+  const [editStatus, setEditStatus] = useState("");
+  const editPending = useRef(false);
+  const editTrigger = useRef(null);
+  const editInput = useRef(null);
+  const restoreEditFocus = useRef(false);
+  const editedMessages = useRef(new Map());
   const mounted = useRef(false);
   const deleted = useRef(new Set());
   for (const id of draft.deletedMessageIds || []) deleted.current.add(id);
@@ -107,6 +117,48 @@ function MachineConversation({ machine }) {
     } finally {
       deletePending.current = false;
       if (mounted.current) setDeleting(false);
+    }
+  }
+
+  useEffect(() => {
+    if (editing || !restoreEditFocus.current) return;
+    restoreEditFocus.current = false;
+    const target = editTrigger.current;
+    if (target?.isConnected) target.focus({ preventScroll: true });
+    else timeline.current?.focus({ preventScroll: true });
+  }, [editing]);
+
+  function closeEdit() {
+    if (editPending.current) return;
+    restoreEditFocus.current = true;
+    setEditing(null);
+    setEditError(null);
+  }
+
+  async function saveEdit(event) {
+    event.preventDefault();
+    if (!editing || editPending.current) return;
+    const text = normalizeMessageText(editText);
+    const error = validateMessage(text, editing.photos);
+    if (error) { setEditError(error); return; }
+    if (text === normalizeMessageText(editing.text)) { closeEdit(); return; }
+    editPending.current = true;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const message = await request(`${endpoint}/${editing.id}`, { method: "PATCH", body: { text } });
+      update(machineId, (current) => String(current.sent?.id) === String(message.id) ? { sent: message } : {});
+      if (!mounted.current) return;
+      editedMessages.current.set(String(message.id), message);
+      setState((old) => ({ ...old, items: old.items.map((item) => String(item.id) === String(message.id) ? message : item) }));
+      restoreEditFocus.current = true;
+      setEditing(null);
+      setEditStatus("Perubahan pesan disimpan.");
+    } catch (error) {
+      if (mounted.current) setEditError(error);
+    } finally {
+      editPending.current = false;
+      if (mounted.current) setSavingEdit(false);
     }
   }
 
@@ -180,7 +232,7 @@ function MachineConversation({ machine }) {
       .then((page) => {
         if (controller.signal.aborted || activeQuery.current !== query) return;
         scroll.current = { bottom: true };
-        setState({ items: page.items.filter((message) => !deleted.current.has(String(message.id))), cursor: page.next_cursor || "", loading: false, error: null });
+        setState({ items: page.items.filter((message) => !deleted.current.has(String(message.id))).map((message) => editedMessages.current.get(String(message.id)) || message), cursor: page.next_cursor || "", loading: false, error: null });
       })
       .catch((error) => {
         if (!controller.signal.aborted && activeQuery.current === query && error.name !== "AbortError") setState({ items: [], cursor: "", loading: false, error });
@@ -217,7 +269,7 @@ function MachineConversation({ machine }) {
       const page = await request(`${endpoint}?${queryString({ limit: 20, cursor: state.cursor, q: query })}`, { signal: controller.signal });
       if (controller.signal.aborted || activeQuery.current !== query) return;
       scroll.current = { height: timeline.current.scrollHeight };
-      setState((old) => ({ ...old, items: mergeMessages(page.items, old.items).filter((message) => !deleted.current.has(String(message.id))), cursor: page.next_cursor || "" }));
+      setState((old) => ({ ...old, items: mergeMessages(page.items, old.items).filter((message) => !deleted.current.has(String(message.id))).map((message) => editedMessages.current.get(String(message.id)) || message), cursor: page.next_cursor || "" }));
       setMore({ loading: false, error: null });
     } catch (error) {
       if (!controller.signal.aborted && activeQuery.current === query && error.name !== "AbortError") setMore({ loading: false, error });
@@ -300,6 +352,8 @@ function MachineConversation({ machine }) {
                   {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} onOpen={() => setActivePhotoId(photo.id)} />)}</div>}
                   <footer className="message-footer">
                     <time className="message-time" dateTime={message.created_at} title={formatTime(message.created_at)}>{clockFormat.format(new Date(message.created_at))}</time>
+                    {message.edited_at && <span className="message-time" title={formatTime(message.edited_at)}>Diedit</span>}
+                    {own && !message.legacy_archive && <button type="button" className="button button-outline message-edit" disabled={savingEdit} aria-label={`Edit pesan Anda, ${formatTime(message.created_at)}`} onClick={(event) => { editTrigger.current = event.currentTarget; setEditText(message.text); setEditError(null); setEditStatus(""); setEditing(message); }}>Edit</button>}
                     {own && !message.legacy_archive && <button type="button" className="icon-button message-delete" disabled={deleting} aria-label={`Hapus pesan Anda, ${formatTime(message.created_at)}`} title="Hapus pesan" onClick={(event) => { deleteTrigger.current = event.currentTarget; setDeleteError(null); setDeleteStatus(""); setConfirmDelete(message); }}><Icon name="trash" size={16} /></button>}
                   </footer>
                 </article>
@@ -329,6 +383,19 @@ function MachineConversation({ machine }) {
         <span className="visually-hidden">Foto JPG, PNG, WebP. Maksimal 20 foto, 10 MB per foto. Draft tetap ada saat berpindah mesin. Menutup atau memuat ulang tab menghapus draft.</span>
       </form>
       <span className="visually-hidden" role="status">{deleteStatus}</span>
+      <span className="visually-hidden" role="status">{editStatus}</span>
+      {editing && <Dialog title="Edit pesan" className="message-edit-dialog" onClose={closeEdit} dismissible={!savingEdit} initialFocus={editInput}>
+        <form onSubmit={saveEdit} aria-busy={savingEdit}>
+          <label htmlFor="edit-message-text">Teks pesan</label>
+          <textarea ref={editInput} id="edit-message-text" rows={6} value={editText} disabled={savingEdit} onChange={(event) => { setEditText(event.target.value); setEditError(null); }} aria-describedby="edit-message-help" aria-invalid={Boolean(editError)} />
+          <p id="edit-message-help">Maks. 20.000 karakter.{editing.photos.length > 0 ? ` ${editing.photos.length} foto tetap tersimpan. Teks boleh dikosongkan.` : " Teks tidak boleh kosong."}</p>
+          <ErrorNotice error={editError} />
+          <div className="dialog-actions">
+            <button type="button" className="button button-outline" disabled={savingEdit} onClick={closeEdit}>Batal</button>
+            <button type="submit" className="button" disabled={savingEdit}>{savingEdit ? "Menyimpan…" : "Simpan perubahan"}</button>
+          </div>
+        </form>
+      </Dialog>}
       {confirmDelete && <Dialog title="Hapus pesan ini?" className="message-delete-dialog" onClose={closeDelete} dismissible={!deleting}>
         <p>Pesan Anda di <strong>{machine.name}</strong> pada {formatTime(confirmDelete.created_at)} beserta seluruh fotonya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</p>
         <ErrorNotice error={deleteError} />

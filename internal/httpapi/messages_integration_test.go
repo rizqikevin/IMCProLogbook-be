@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"machine-logbook/internal/domain"
@@ -207,4 +209,118 @@ func TestIntegrationDeleteMessageSenderOnlyAndPhotoCleanup(t *testing.T) {
 		}
 	}
 	requireStatus(t, app.request(http.MethodGet, archive.Photos[0].URL, operator.AccessToken, "", nil), http.StatusOK)
+}
+
+func TestIntegrationEditMessageSenderOnlyValidationAndPhotos(t *testing.T) {
+	app := newIntegrationApp(t)
+	operator := app.login(t, "operator")
+	admin := app.login(t, "admin")
+	_, jpeg := integrationImages(t)
+	body, contentType := uploadBody(t, false, jpeg, jpeg)
+	response := app.request("POST", "/api/v1/machines/1/messages", operator.AccessToken, contentType, body)
+	requireStatus(t, response, 201)
+	original := decodeBody[domain.Message](t, response)
+	path := "/api/v1/machines/1/messages/" + original.ID
+	for _, tc := range []struct {
+		name, path, token, contentType, body string
+		status                               int
+	}{
+		{"unauthenticated", path, "", "application/json", `{"text":"changed"}`, 401},
+		{"admin cannot override", path, admin.AccessToken, "application/json", `{"text":"changed"}`, 403},
+		{"wrong machine", "/api/v1/machines/2/messages/" + original.ID, operator.AccessToken, "application/json", `{"text":"changed"}`, 404},
+		{"missing", "/api/v1/machines/1/messages/00000000-0000-4000-8000-000000000000", operator.AccessToken, "application/json", `{"text":"changed"}`, 404},
+		{"invalid machine", "/api/v1/machines/no/messages/" + original.ID, operator.AccessToken, "application/json", `{"text":"changed"}`, 400},
+		{"invalid message", "/api/v1/machines/1/messages/bad", operator.AccessToken, "application/json", `{"text":"changed"}`, 400},
+		{"wrong media", path, operator.AccessToken, "text/plain", `{"text":"changed"}`, 415},
+		{"missing text", path, operator.AccessToken, "application/json", `{}`, 400},
+		{"null text", path, operator.AccessToken, "application/json", `{"text":null}`, 400},
+		{"null body", path, operator.AccessToken, "application/json", `null`, 400},
+		{"number", path, operator.AccessToken, "application/json", `{"text":42}`, 400},
+		{"unknown field", path, operator.AccessToken, "application/json", `{"text":"changed","created_by":"other"}`, 400},
+		{"trailing JSON", path, operator.AccessToken, "application/json", `{"text":"changed"}{}`, 400},
+		{"NUL", path, operator.AccessToken, "application/json", `{"text":"\u0000"}`, 400},
+		{"invalid UTF8", path, operator.AccessToken, "application/json", "{\"text\":\"\xff\"}", 400},
+		{"too long", path, operator.AccessToken, "application/json", `{"text":"` + strings.Repeat("界", 20001) + `"}`, 400},
+		{"body limit", path, operator.AccessToken, "application/json", strings.Repeat(" ", 256<<10) + `{}`, 413},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requireStatus(t, app.request("PATCH", tc.path, tc.token, tc.contentType, strings.NewReader(tc.body)), tc.status)
+		})
+	}
+	body, contentType = uploadBody(t, true, jpeg)
+	response = app.request("POST", "/api/v1/logbooks", operator.AccessToken, contentType, body)
+	requireStatus(t, response, 201)
+	archive := decodeBody[domain.Logbook](t, response)
+	requireStatus(t, app.request("PATCH", "/api/v1/machines/1/messages/"+archive.ID, operator.AccessToken, "application/json", strings.NewReader(`{"text":"changed"}`)), 404)
+	if _, err := app.pool.Exec(context.Background(), `UPDATE machines SET active = FALSE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	requireStatus(t, app.request("PATCH", path, operator.AccessToken, "application/json", strings.NewReader(`{"text":"changed"}`)), 404)
+	if _, err := app.pool.Exec(context.Background(), `UPDATE machines SET active = TRUE WHERE id = 1`); err != nil {
+		t.Fatal(err)
+	}
+	response = app.request("GET", "/api/v1/machines/1/messages", operator.AccessToken, "", nil)
+	requireStatus(t, response, 200)
+	before := decodeBody[domain.MessagePage](t, response)
+	if before.Items[0].Text != original.Text || before.Items[0].EditedAt != nil {
+		t.Fatal("rejected edits changed message")
+	}
+	for _, text := range []string{`{"text":"line one\r\nline two"}`, `{"text":"line one\nline two"}`, `{"text":""}`} {
+		response = app.request("PATCH", path, operator.AccessToken, "application/json", strings.NewReader(text))
+		requireStatus(t, response, 200)
+		edited := decodeBody[domain.Message](t, response)
+		if edited.EditedAt == nil || !edited.CreatedAt.Equal(original.CreatedAt) || !reflect.DeepEqual(edited.Photos, original.Photos) || edited.Author != original.Author {
+			t.Fatalf("edit changed metadata: %+v", edited)
+		}
+		if text == `{"text":"line one\nline two"}` && !edited.EditedAt.Equal(*original.EditedAt) {
+			t.Fatal("normalized no-op changed timestamp")
+		}
+		original = edited
+	}
+	for _, photo := range original.Photos {
+		response = app.request("GET", photo.URL, operator.AccessToken, "", nil)
+		requireStatus(t, response, 200)
+		if !bytes.Equal(response.Body.Bytes(), jpeg) {
+			t.Fatal("edit changed photo bytes")
+		}
+	}
+	response = app.request("GET", "/api/v1/machines/1/messages", operator.AccessToken, "", nil)
+	requireStatus(t, response, 200)
+	page := decodeBody[domain.MessagePage](t, response)
+	if len(page.Items) != 2 || !reflect.DeepEqual(page.Items[0], original) || page.Items[1].EditedAt != nil {
+		t.Fatalf("edit not persisted or reordered timeline: %+v", page)
+	}
+}
+
+func TestIntegrationEditTextOnlyMessageRejectsBlankAndAcceptsUnicodeLimit(t *testing.T) {
+	app := newIntegrationApp(t)
+	operator := app.login(t, "operator")
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	if err := form.WriteField("text", "original"); err != nil {
+		t.Fatal(err)
+	}
+	if err := form.Close(); err != nil {
+		t.Fatal(err)
+	}
+	response := app.request("POST", "/api/v1/machines/1/messages", operator.AccessToken, form.FormDataContentType(), &body)
+	requireStatus(t, response, 201)
+	message := decodeBody[domain.Message](t, response)
+	path := "/api/v1/machines/1/messages/" + message.ID
+	for _, payload := range []string{`{"text":""}`, `{"text":" \t\n\u2003"}`} {
+		requireStatus(t, app.request("PATCH", path, operator.AccessToken, "application/json", strings.NewReader(payload)), 400)
+	}
+	response = app.request("PATCH", path, operator.AccessToken, "application/json", strings.NewReader(`{"text":"original"}`))
+	requireStatus(t, response, 200)
+	unchanged := decodeBody[domain.Message](t, response)
+	if unchanged.EditedAt != nil || unchanged.Text != "original" {
+		t.Fatalf("blank rejection or no-op changed message: %+v", unchanged)
+	}
+	text := strings.Repeat("界", 20000)
+	response = app.request("PATCH", path, operator.AccessToken, "application/json", strings.NewReader(`{"text":"`+text+`"}`))
+	requireStatus(t, response, 200)
+	edited := decodeBody[domain.Message](t, response)
+	if edited.Text != text || edited.EditedAt == nil || !edited.CreatedAt.Equal(message.CreatedAt) || edited.Photos == nil || len(edited.Photos) != 0 {
+		t.Fatalf("Unicode limit edit: %+v", edited)
+	}
 }

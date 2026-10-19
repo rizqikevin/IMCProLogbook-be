@@ -94,13 +94,15 @@ export function Dialog({
   onClose,
   className = "",
   dismissible = true,
+  initialFocus,
 }) {
   const ref = useRef(null);
   useEffect(() => {
     const dialog = ref.current;
     dialog.showModal();
+    initialFocus?.current?.focus();
     return () => dialog.close();
-  }, []);
+  }, [initialFocus]);
   return (
     <dialog
       ref={ref}

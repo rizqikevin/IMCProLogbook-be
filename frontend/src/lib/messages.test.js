@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { flattenPhotos, mergeMessages, messageForm, validateMessage } from "./messages";
+import { flattenPhotos, mergeMessages, messageForm, normalizeMessageText, validateMessage } from "./messages";
 
 describe("message content", () => {
   it("accepts text, photos, or both but rejects blank content", () => {
@@ -11,6 +11,13 @@ describe("message content", () => {
   it("counts Unicode code points rather than UTF-16 units", () => {
     expect(validateMessage("𠮷".repeat(20_000), [])).toBe("");
     expect(validateMessage("𠮷".repeat(20_001), [])).not.toBe("");
+  });
+  it("normalizes only CRLF and validates edited text against existing photos", () => {
+    expect(normalizeMessageText("  awal\r\nakhir\r  ")).toBe("  awal\nakhir\r  ");
+    expect(validateMessage("a\r\n".repeat(10_000), [])).toBe("");
+    expect(validateMessage("\0", [{}])).not.toBe("");
+    expect(validateMessage(" \n", [])).not.toBe("");
+    expect(validateMessage("", [{ id: "saved-photo" }])).toBe("");
   });
   it("preserves text exactly and includes repeated photos without date or shift", () => {
     const text = "  awal\n\n<script>catatan</script>\takhir  ";
@@ -29,6 +36,14 @@ describe("timeline pages", () => {
     const b = { id: "b", created_at: a.created_at };
     const c = { id: "c", created_at: "2026-01-02T00:00:00Z" };
     expect(mergeMessages([a, b], [b, c])).toEqual([a, b, c]);
+  });
+  it("replaces saved edits without changing timeline order or photo metadata", () => {
+    const original = { id: "a", text: "before", created_at: "2026-01-01T00:00:00Z", photos: [{ id: "photo" }], edited_at: null };
+    const next = { id: "b", text: "later" };
+    const saved = { ...original, text: "after", edited_at: "2026-01-02T00:00:00Z" };
+    expect(mergeMessages([original, next], [saved])).toEqual([saved, next]);
+    expect(saved.photos).toBe(original.photos);
+    expect(saved.created_at).toBe(original.created_at);
   });
 });
 

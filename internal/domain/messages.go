@@ -19,6 +19,7 @@ type Message struct {
 	Text          string         `json:"text"`
 	Author        MessageAuthor  `json:"author"`
 	CreatedAt     time.Time      `json:"created_at"`
+	EditedAt      *time.Time     `json:"edited_at"`
 	Photos        []Photo        `json:"photos"`
 	LegacyArchive *LegacyArchive `json:"legacy_archive,omitempty"`
 }

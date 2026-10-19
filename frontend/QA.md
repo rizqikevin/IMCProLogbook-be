@@ -1,5 +1,31 @@
 # Verifikasi frontend
 
+## Edit teks pesan · 19 Oktober 2026
+
+- `go test ./...` dengan PostgreSQL terisolasi, unit test frontend, dan build
+  production selesai sebelum suite E2E dalam satu rangkaian perintah `&&`.
+  Output ringkasan rangkaian terpotong oleh tool; jumlah unit test tidak dicatat.
+- Suite E2E akhir: 30 pengujian desktop/Pixel 7 lulus. Kegagalan fokus editor pada
+  percobaan pertama diperbaiki dengan fokus setelah native dialog dibuka.
+- Regresi edit mencakup izin sender/arsip, prefill dan fokus, batal/Escape, no-op,
+  pending save, error/retry, validasi kosong, foto dan created_at tetap, draft
+  composer tetap, serta Diedit setelah reload. API memakai PostgreSQL nyata.
+- Smoke browser langsung 1440 × 1000 dan 390 × 844: kirim pesan, edit teks,
+  simpan, dan reload menampilkan teks tersimpan serta Diedit. Draft composer
+  tetap setelah simpan; editor menerima fokus. Lebar dokumen mobile 390 px,
+  sama dengan viewport; kontrol Edit dan hapus setinggi 44 px.
+- Smoke API nyata: no-op mempertahankan edited_at dan created_at; teks kosong
+  tanpa foto mendapat 400, tanpa autentikasi 401, dan admin lain 403.
+- Hard gate PASS untuk perubahan: suite browser menguji interaksi dan aksesibilitas;
+  save/cancel/loading/error berjalan. Setelah reload bersih tidak ada exception
+  JavaScript; request dibatalkan saat lifecycle development tercatat terpisah.
+- Purpose gate PASS: dialog terpisah menjaga draft; label Diedit menunjukkan
+  perubahan yang benar-benar tersimpan, bukan status optimistis.
+- Liveliness PASS: identitas navy IMCPro dan dial 1/2/1 tetap, tanpa aset baru.
+- Craftsmanship PASS: API, UI, dan persistensi memakai backend/database nyata.
+  Screenshot smoke timeout, sehingga bukti layout memakai DOM dan suite browser.
+  Perangkat fisik dan deployment production belum diuji.
+
 ## Pengambilan foto beruntun · 12 Oktober 2026
 
 - 13 unit test, build production, dan 24 E2E desktop/Pixel 7 lulus.

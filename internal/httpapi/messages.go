@@ -1,9 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strconv"
+	"unicode/utf8"
 
 	"machine-logbook/internal/domain"
 	"machine-logbook/internal/service"
@@ -105,4 +110,46 @@ func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) editMessage(w http.ResponseWriter, r *http.Request) {
+	machineID, err := machinePathID(r)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		problem(w, r, http.StatusUnsupportedMediaType, "unsupported_media_type", "use application/json")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 256<<10)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		s.decodeError(w, r, err)
+		return
+	}
+	if !utf8.Valid(body) {
+		problem(w, r, http.StatusBadRequest, "invalid_json", "expected valid UTF-8 JSON")
+		return
+	}
+	var input struct {
+		Text *string `json:"text"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&input); err != nil {
+		s.decodeError(w, r, err)
+		return
+	}
+	if dec.Decode(new(any)) != io.EOF || input.Text == nil {
+		problem(w, r, http.StatusBadRequest, "invalid_json", "expected one JSON object with text")
+		return
+	}
+	message, err := s.logbooks.EditMessage(r.Context(), currentUser(r), machineID, r.PathValue("messageID"), *input.Text)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, message)
 }

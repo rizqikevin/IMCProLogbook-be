@@ -70,6 +70,17 @@ pending deletion blocks duplicate actions and dismissal. Failure keeps the row
 and dialog available for retry. Success removes the row and returns focus to the
 timeline while preserving the composer draft, keeping deletion separate from sending.
 
+## Sender-owned message editing
+
+The labelled Edit action stays beside its native message, using existing industrial
+colors, system type, 44px controls, and ENERGY 1 / RHYTHM 2 / MOTION 1. A separate
+native dialog keeps correction apart from the unsent composer draft and photos.
+The saved text is prefilled and focused; cancel and Escape return focus to Edit.
+Pending saves prevent duplicate actions and dismissal, while failure retains the
+edit for retry. Only the server's edited_at displays Diedit; unchanged saves do not
+mark a message. Photos, original timestamp, and timeline position stay unchanged.
+Sender ownership is enforced by the API, including for admins, with no time limit.
+
 ## Search within a machine
 
 Reading: text retrieval inside the existing factory logbook, retaining industrial
