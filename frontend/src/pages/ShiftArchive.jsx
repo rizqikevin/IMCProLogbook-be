@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
-import { useCatalog } from "../hooks";
-import { request, queryString } from "../lib/api";
+import { useCatalog, useShiftArchive } from "../hooks";
 import { validDate } from "../lib/shifts";
 import { formatDate } from "../lib/format";
 import { ErrorNotice, Loading } from "../components/common";
 import ShiftNavigation from "../components/ShiftNavigation";
-
 export default function ShiftArchive() {
   const { machineId, date, shiftId } = useParams();
   const catalog = useCatalog();
@@ -14,26 +11,14 @@ export default function ShiftArchive() {
     (item) => String(item.id) === machineId,
   );
   const valid = validDate(date) && ["1", "2", "3"].includes(shiftId);
-  const [state, setState] = useState({ loading: true });
-  const [attempt, setAttempt] = useState(0);
-  const key = `${machineId}/${date}/${shiftId}`;
-  useEffect(() => {
-    if (!machine || !valid) return;
-    const controller = new AbortController();
-    setState({ loading: true, key });
-    request(
-      `/logbooks?${queryString({ machine_id: machineId, date_from: date, date_to: date, shift_id: shiftId, limit: 1 })}`,
-      { signal: controller.signal },
-    )
-      .then((result) =>
-        setState({ key, book: result.items[0], loading: false }),
-      )
-      .catch((error) => {
-        if (error.name !== "AbortError")
-          setState({ key, error, loading: false });
-      });
-    return () => controller.abort();
-  }, [machineId, date, shiftId, Boolean(machine), valid, attempt]);
+  const {
+    book,
+    loading: shiftLoading,
+    error: shiftError,
+    retry: shiftRetry,
+  } = useShiftArchive(machineId, date, shiftId, {
+    enabled: Boolean(machine && valid),
+  });
   if (catalog.loading) return <Loading />;
   if (catalog.error)
     return (
@@ -50,8 +35,8 @@ export default function ShiftArchive() {
         </Link>
       </div>
     );
-  if (state.key !== key || state.loading) return <Loading />;
-  if (state.book) return <Navigate to={`/logbooks/${state.book.id}`} replace />;
+  if (shiftLoading) return <Loading />;
+  if (book) return <Navigate to={`/logbooks/${book.id}`} replace />;
   return (
     <div className="page book-page">
       <Link className="back-link" to={`/machines/${machineId}`}>
@@ -66,11 +51,8 @@ export default function ShiftArchive() {
         </div>
       </div>
       <ShiftNavigation machine={machineId} date={date} shift={shiftId} />
-      {state.error ? (
-        <ErrorNotice
-          error={state.error}
-          onRetry={() => setAttempt((value) => value + 1)}
-        />
+      {shiftError ? (
+        <ErrorNotice error={shiftError} onRetry={shiftRetry} />
       ) : (
         <section className="empty-state">
           <h2>Belum ada arsip</h2>

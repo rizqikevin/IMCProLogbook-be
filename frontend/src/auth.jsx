@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { readSession, request, saveSession } from "./lib/api";
+import { queryClient } from "./queryClient";
 import { ErrorNotice, Loading } from "./components/common";
 
 const AuthContext = createContext(null);
@@ -22,6 +23,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setExpiresAt(null);
     setStatus("anonymous");
+    queryClient.clear();
   }, []);
 
   useEffect(() => {

@@ -29,15 +29,44 @@
   .message-entry.message-own { margin-left: auto; background: #deddf2; border-radius: 10px 2px 10px 10px; }
   .message-meta { margin-bottom: 0.2rem; color: #39355f; font-size: 0.78rem; }
   .message-text { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; line-height: 1.5; }
-  .message-time { display: block; margin-top: 0.25rem; text-align: right; color: #515567; font-size: 0.7rem; }
-  .message-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.35rem; }
+  .message-time { display: inline-block; margin-top: 0.2rem; text-align: right; color: #515567; font-size: 0.72rem; }
+  .message-edited { display: inline-flex; align-items: center; font-size: 0.7rem; color: #5e6378; font-style: italic; }
+  .message-edited::before { content: "•"; font-size: 0.55rem; font-style: normal; margin-inline: 0.25rem 0.2rem; opacity: 0.75; }
+  .message-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.35rem; margin-top: 0.15rem; }
   .message-footer .message-time { margin-top: 0; }
+  .message-actions { display: inline-flex; align-items: center; gap: 0.1rem; margin-left: 0.2rem; }
+  .message-action { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border: none; background: transparent; color: #515567; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.15s ease, color 0.15s ease; }
+  .message-action:hover:not(:disabled) { background: rgba(33, 96, 74, 0.12); color: var(--green); }
+  .message-action.message-delete:hover:not(:disabled) { background: rgba(186, 45, 45, 0.12); color: #ba2d2d; }
+  .message-action:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+  .message-own .message-time { color: #403c62; }
+  .message-own .message-edited { color: #4a4570; }
+  .message-own .message-action { color: #403c62; }
   .message-delete-dialog .button { min-width: 44px; min-height: 44px; }
-  .message-edit, .message-edit-dialog .button { min-width: 44px; min-height: 44px; }
-  .message-edit { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
-  .message-edit-dialog label { display: block; margin-bottom: 0.4rem; font-weight: 600; }
-  .message-edit-dialog textarea { display: block; width: 100%; min-width: 0; max-height: 40dvh; resize: vertical; padding: 0.65rem; font: inherit; color: var(--ink); background: #fff; border: 1px solid var(--control); border-radius: 6px; }
-  .message-edit-dialog form > p { margin-top: 0.5rem; font-size: 0.85rem; color: var(--muted); }
+  .message-edit-dialog { width: min(560px, calc(100% - 1.5rem)); padding: 1.5rem; border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(24, 37, 31, 0.22); }
+  .message-edit-dialog .dialog-heading { margin-bottom: 1rem; }
+  .message-edit-dialog .dialog-heading h2 { font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+  .message-edit-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; padding: 0.55rem 0.85rem; margin-bottom: 0.95rem; background: #f4f5f1; border: 1px solid var(--line); border-radius: 8px; font-size: 0.82rem; color: var(--muted); }
+  .message-edit-meta-author { font-weight: 600; color: var(--ink); }
+  .message-edit-meta-separator { opacity: 0.5; }
+  .message-edit-photos-badge { display: inline-flex; align-items: center; gap: 0.35rem; margin-left: auto; padding: 0.2rem 0.55rem; background: #fff; border: 1px solid var(--control); border-radius: 4px; font-size: 0.78rem; font-weight: 600; color: var(--ink); }
+  .message-edit-field { margin-bottom: 0.5rem; }
+  .message-edit-label-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.45rem; }
+  .message-edit-label-row label { font-size: 0.88rem; font-weight: 600; color: var(--ink); margin: 0; }
+  .message-edit-counter { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .message-edit-dialog textarea { display: block; width: 100%; min-width: 0; min-height: 140px; max-height: 42dvh; resize: vertical; padding: 0.85rem; font: inherit; font-size: 0.95rem; line-height: 1.55; color: var(--ink); background: #fff; border: 1.5px solid var(--control); border-radius: 8px; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+  .message-edit-dialog textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-pale); }
+  .message-edit-hint-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; margin-top: 0.45rem; margin-bottom: 0.75rem; }
+  .message-edit-help { font-size: 0.82rem; color: var(--muted); margin: 0; }
+  .message-edit-kbd-hint { font-size: 0.76rem; color: #555e55; }
+  .message-edit-kbd-hint kbd { display: inline-block; padding: 0.1rem 0.35rem; font-family: inherit; font-size: 0.72rem; font-weight: 600; color: #3f453f; background: #f0f2ee; border: 1px solid var(--control); border-radius: 4px; }
+  .message-edit-dialog .dialog-actions { margin-top: 1.25rem; }
+  .message-edit-dialog .button { min-width: 44px; min-height: 44px; padding-inline: 1.25rem; font-weight: 600; }
+  .button-save-edit { display: inline-flex; align-items: center; gap: 0.45rem; }
+  @media (max-width: 600px) {
+    .message-edit-dialog { width: calc(100% - 1rem); padding: 1.15rem; }
+    .message-edit-kbd-hint { display: none; }
+  }
   .legacy-message { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; color: #515567; font-size: 0.85rem; }
   .legacy-message a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: underline; color: var(--green); }
   .message-entry:has(.message-photos) { width: min(88%, 480px); }

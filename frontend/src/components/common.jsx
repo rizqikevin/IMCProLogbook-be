@@ -26,6 +26,12 @@ export function Icon({ name, size = 20 }) {
         <path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7" />
       </>
     ),
+    edit: (
+      <>
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </>
+    ),
     down: <path d="M12 4v16m-5-5 5 5 5-5" />,
     up: <path d="M12 20V4m-5 5 5-5 5 5" />,
     check: <path d="m5 12 4 4L19 6" />,

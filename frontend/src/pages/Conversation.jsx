@@ -352,9 +352,42 @@ function MachineConversation({ machine }) {
                   {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} onOpen={() => setActivePhotoId(photo.id)} />)}</div>}
                   <footer className="message-footer">
                     <time className="message-time" dateTime={message.created_at} title={formatTime(message.created_at)}>{clockFormat.format(new Date(message.created_at))}</time>
-                    {message.edited_at && <span className="message-time" title={formatTime(message.edited_at)}>Diedit</span>}
-                    {own && !message.legacy_archive && <button type="button" className="button button-outline message-edit" disabled={savingEdit} aria-label={`Edit pesan Anda, ${formatTime(message.created_at)}`} onClick={(event) => { editTrigger.current = event.currentTarget; setEditText(message.text); setEditError(null); setEditStatus(""); setEditing(message); }}>Edit</button>}
-                    {own && !message.legacy_archive && <button type="button" className="icon-button message-delete" disabled={deleting} aria-label={`Hapus pesan Anda, ${formatTime(message.created_at)}`} title="Hapus pesan" onClick={(event) => { deleteTrigger.current = event.currentTarget; setDeleteError(null); setDeleteStatus(""); setConfirmDelete(message); }}><Icon name="trash" size={16} /></button>}
+                    {message.edited_at && <span className="message-edited" title={formatTime(message.edited_at)}>Diedit</span>}
+                    {own && !message.legacy_archive && (
+                      <div className="message-actions">
+                        <button
+                          type="button"
+                          className="icon-button message-action message-edit"
+                          disabled={savingEdit}
+                          aria-label={`Edit pesan Anda, ${formatTime(message.created_at)}`}
+                          title="Edit pesan"
+                          onClick={(event) => {
+                            editTrigger.current = event.currentTarget;
+                            setEditText(message.text);
+                            setEditError(null);
+                            setEditStatus("");
+                            setEditing(message);
+                          }}
+                        >
+                          <Icon name="edit" size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button message-action message-delete"
+                          disabled={deleting}
+                          aria-label={`Hapus pesan Anda, ${formatTime(message.created_at)}`}
+                          title="Hapus pesan"
+                          onClick={(event) => {
+                            deleteTrigger.current = event.currentTarget;
+                            setDeleteError(null);
+                            setDeleteStatus("");
+                            setConfirmDelete(message);
+                          }}
+                        >
+                          <Icon name="trash" size={15} />
+                        </button>
+                      </div>
+                    )}
                   </footer>
                 </article>
               </li>;
@@ -385,14 +418,60 @@ function MachineConversation({ machine }) {
       <span className="visually-hidden" role="status">{deleteStatus}</span>
       <span className="visually-hidden" role="status">{editStatus}</span>
       {editing && <Dialog title="Edit pesan" className="message-edit-dialog" onClose={closeEdit} dismissible={!savingEdit} initialFocus={editInput}>
-        <form onSubmit={saveEdit} aria-busy={savingEdit}>
-          <label htmlFor="edit-message-text">Teks pesan</label>
-          <textarea ref={editInput} id="edit-message-text" rows={6} value={editText} disabled={savingEdit} onChange={(event) => { setEditText(event.target.value); setEditError(null); }} aria-describedby="edit-message-help" aria-invalid={Boolean(editError)} />
-          <p id="edit-message-help">Maks. 20.000 karakter.{editing.photos.length > 0 ? ` ${editing.photos.length} foto tetap tersimpan. Teks boleh dikosongkan.` : " Teks tidak boleh kosong."}</p>
+        <form onSubmit={saveEdit} aria-busy={savingEdit} className="message-edit-form">
+          <div className="message-edit-meta">
+            <span className="message-edit-meta-author">{editing.author.name}</span>
+            <span className="message-edit-meta-separator" aria-hidden="true">·</span>
+            <time className="message-edit-meta-time" dateTime={editing.created_at}>{formatTime(editing.created_at)}</time>
+            {editing.photos.length > 0 && (
+              <span className="message-edit-photos-badge" title={`${editing.photos.length} foto terlampir tidak dapat diubah`}>
+                <Icon name="camera" size={14} />
+                <span>{editing.photos.length} foto tersimpan</span>
+              </span>
+            )}
+          </div>
+          <div className="message-edit-field">
+            <div className="message-edit-label-row">
+              <label htmlFor="edit-message-text">Teks pesan</label>
+              <span className="message-edit-counter" aria-hidden="true">
+                {Array.from(editText).length.toLocaleString("id-ID")} / 20.000
+              </span>
+            </div>
+            <textarea
+              ref={editInput}
+              id="edit-message-text"
+              rows={5}
+              value={editText}
+              disabled={savingEdit}
+              placeholder="Tulis pesan…"
+              onChange={(event) => {
+                setEditText(event.target.value);
+                setEditError(null);
+              }}
+              onKeyDown={(event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  saveEdit(event);
+                }
+              }}
+              aria-describedby="edit-message-help"
+              aria-invalid={Boolean(editError)}
+            />
+          </div>
+          <div className="message-edit-hint-row">
+            <p id="edit-message-help" className="message-edit-help">
+              Maks. 20.000 karakter.{editing.photos.length > 0 ? ` ${editing.photos.length} foto tetap tersimpan. Teks boleh dikosongkan.` : " Teks tidak boleh kosong."}
+            </p>
+            <span className="message-edit-kbd-hint" aria-hidden="true">
+              <kbd>Ctrl</kbd>+<kbd>Enter</kbd> untuk simpan
+            </span>
+          </div>
           <ErrorNotice error={editError} />
           <div className="dialog-actions">
             <button type="button" className="button button-outline" disabled={savingEdit} onClick={closeEdit}>Batal</button>
-            <button type="submit" className="button" disabled={savingEdit}>{savingEdit ? "Menyimpan…" : "Simpan perubahan"}</button>
+            <button type="submit" className="button button-save-edit" disabled={savingEdit}>
+              {savingEdit ? "Menyimpan…" : "Simpan perubahan"}
+            </button>
           </div>
         </form>
       </Dialog>}

@@ -3,6 +3,7 @@ import ShiftNavigation from "../components/ShiftNavigation";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import { useBook, usePhoto } from "../hooks";
+import { queryClient, queryKeys } from "../queryClient";
 import { request } from "../lib/api";
 import { formatBytes, formatDate, formatTime } from "../lib/format";
 import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
@@ -29,6 +30,8 @@ export default function Book() {
     setDeleteError(null);
     try {
       await request(`/logbooks/${id}`, { method: "DELETE" });
+      queryClient.removeQueries({ queryKey: queryKeys.book(id) });
+      queryClient.invalidateQueries({ queryKey: ["logbooks"] });
       navigate(`/machines/${book.machine.id}`, { replace: true });
     } catch (error) {
       setDeleteError(error);
@@ -97,7 +100,7 @@ export default function Book() {
                   <Loading>Memuat halaman…</Loading>
                 ) : photo.error ? (
                   <ErrorNotice error={photo.error} onRetry={photo.retry} />
-                ) : (
+                ) : photo.url ? (
                   <button
                     className="photo-open"
                     onClick={() => setZoom(true)}
@@ -108,7 +111,7 @@ export default function Book() {
                       alt={`Logbook ${book.machine.name}, ${formatDate(book.log_date)}, halaman ${selected.page_number}`}
                     />
                   </button>
-                )}
+                ) : null}
               </div>
               <div className="viewer-pagination">
                 <button
