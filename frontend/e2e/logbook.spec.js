@@ -104,7 +104,17 @@ test("machine conversation persists exact text, photos, both, and historical arc
   await expect(page.locator(".message-text").filter({ hasText: testInfo.project.name }).last()).toHaveJSProperty("textContent", body);
   const open = page.getByRole("button", { name: "Perbesar foto 1", exact: true }).last();
   await open.click();
-  await expect(page.getByRole("dialog").getByRole("img")).toBeVisible();
+  const dialogImg = page.getByRole("dialog").getByRole("img");
+  await expect(dialogImg).toBeVisible();
+  const rotateBtn = page.getByRole("button", { name: /Putar foto/ });
+  await expect(rotateBtn).toBeVisible();
+  await rotateBtn.click();
+  await expect(dialogImg).toHaveAttribute("style", /rotate\(90deg\)/);
+  await page.keyboard.press("r");
+  await expect(dialogImg).toHaveAttribute("style", /rotate\(180deg\)/);
+  const resetBtn = page.getByRole("button", { name: /Atur ulang/ });
+  await resetBtn.click();
+  await expect(dialogImg).toHaveAttribute("style", /rotate\(0deg\)/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await accessible(page);

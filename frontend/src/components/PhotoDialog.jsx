@@ -9,16 +9,22 @@ function PhotoViewer({ photoUrl, title }) {
   const pointers = useRef(new Map());
   const viewRef = useRef({ scale: 1, x: 0, y: 0 });
   const [view, setView] = useState(viewRef.current);
+  const [rotation, setRotation] = useState(0);
+  const rotationRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  function updateView(next) {
+  function updateView(next, nextRotation = rotationRef.current) {
     const stage = stageRef.current;
     const image = imageRef.current;
+    if (!stage || !image) return;
+    const isTransposed = nextRotation % 180 !== 0;
+    const w = isTransposed ? image.offsetHeight : image.offsetWidth;
+    const h = isTransposed ? image.offsetWidth : image.offsetHeight;
     const scale = Math.min(MAX_ZOOM, Math.max(1, next.scale));
-    const maxX = Math.max(0, (image.offsetWidth * scale - stage.clientWidth) / 2);
-    const maxY = Math.max(0, (image.offsetHeight * scale - stage.clientHeight) / 2);
+    const maxX = Math.max(0, (w * scale - stage.clientWidth) / 2);
+    const maxY = Math.max(0, (h * scale - stage.clientHeight) / 2);
     viewRef.current = {
       scale,
       x: Math.max(-maxX, Math.min(maxX, next.x)),
@@ -31,6 +37,22 @@ function PhotoViewer({ photoUrl, title }) {
     updateView({ ...viewRef.current, scale });
   }
 
+  function rotate(direction = 1) {
+    const next = (rotationRef.current + direction * 90 + 360) % 360;
+    rotationRef.current = next;
+    setRotation(next);
+    updateView(viewRef.current, next);
+  }
+
+  function reset() {
+    if (view.scale !== 1 || view.x !== 0 || view.y !== 0) {
+      updateView({ scale: 1, x: 0, y: 0 });
+    } else if (rotationRef.current !== 0) {
+      rotationRef.current = 0;
+      setRotation(0);
+      updateView({ scale: 1, x: 0, y: 0 }, 0);
+    }
+  }
   useEffect(() => {
     const observer = new ResizeObserver(() => updateView(viewRef.current));
     observer.observe(stageRef.current);
@@ -88,6 +110,18 @@ function PhotoViewer({ photoUrl, title }) {
     }
   }
 
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (!ready) return;
+      if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
+      if ((event.key === "r" || event.key === "R") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        rotate(event.shiftKey ? -1 : 1);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [ready]);
   return (
     <>
       <div
@@ -108,20 +142,44 @@ function PhotoViewer({ photoUrl, title }) {
           src={photoUrl}
           alt={title}
           draggable={false}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, visibility: ready ? "visible" : "hidden" }}
+          style={{
+            transform: `translate(${view.x}px, ${view.y}px) rotate(${rotation}deg) scale(${view.scale})`,
+            transition: dragging ? "none" : "transform 0.15s ease",
+            visibility: ready ? "visible" : "hidden",
+          }}
           onLoad={() => { setReady(true); updateView(viewRef.current); }}
           onError={() => { setFailed(true); setReady(false); }}
         />
         {!ready && <div className="photo-dialog-image-status">{failed ? "Foto tidak dapat ditampilkan." : <Loading>Memuat foto…</Loading>}</div>}
       </div>
-      <div className="photo-dialog-zoom" role="group" aria-label="Ukuran foto">
+      <div className="photo-dialog-zoom" role="group" aria-label="Ukuran dan rotasi foto">
         <button type="button" className="photo-viewer-control" aria-label="Perkecil foto" title="Perkecil foto" disabled={!ready || view.scale <= 1} onClick={() => zoom(view.scale - 0.5)}><Icon name="minus" /></button>
         <output aria-live="polite" aria-label="Pembesaran foto">{Math.round(view.scale * 100)}%</output>
         <button type="button" className="photo-viewer-control" aria-label="Perbesar foto" title="Perbesar foto" disabled={!ready || view.scale >= MAX_ZOOM} onClick={() => zoom(view.scale + 0.5)}><Icon name="plus" /></button>
         <span className="photo-dialog-tool-divider" aria-hidden="true" />
-        <button type="button" className="photo-viewer-control" aria-label="Atur ulang ukuran foto" title="Atur ulang ukuran foto (100%)" disabled={!ready || view.scale === 1} onClick={() => updateView({ scale: 1, x: 0, y: 0 })}><Icon name="fit" /></button>
+        <button
+          type="button"
+          className="photo-viewer-control"
+          aria-label="Atur ulang ukuran dan rotasi foto"
+          title={view.scale !== 1 ? "Atur ulang ukuran foto (100%)" : rotation !== 0 ? "Atur ulang rotasi (0°)" : "Atur ulang"}
+          disabled={!ready || (view.scale === 1 && view.x === 0 && view.y === 0 && rotation === 0)}
+          onClick={reset}
+        >
+          <Icon name="fit" />
+        </button>
+        <span className="photo-dialog-tool-divider" aria-hidden="true" />
+        <button
+          type="button"
+          className="photo-viewer-control"
+          aria-label={rotation ? `Putar foto 90 derajat searah jarum jam (saat ini ${rotation}°)` : "Putar foto 90 derajat searah jarum jam"}
+          title="Putar foto 90° (R)"
+          disabled={!ready}
+          onClick={(event) => rotate(event.shiftKey ? -1 : 1)}
+        >
+          <Icon name="rotate" />
+        </button>
       </div>
-      <p className="photo-dialog-hint">Cubit untuk zoom · Geser saat diperbesar<span> · Shift + panah untuk menggeser</span></p>
+      <p className="photo-dialog-hint">Cubit untuk zoom · Putar foto (R) · Geser saat diperbesar<span> · Shift + panah untuk menggeser</span></p>
     </>
   );
 }
