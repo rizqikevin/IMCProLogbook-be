@@ -1186,7 +1186,49 @@
     outline: 3px solid var(--ink);
     outline-offset: 2px;
   }
-  .photo-dialog-image-status { position: absolute; }
+  .photo-dialog-image-status {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--skeleton-bg);
+    z-index: 1;
+  }
+  .photo-dialog-image-status svg {
+    opacity: 0.3;
+    color: var(--muted);
+  }
+  .photo-dialog-error-msg {
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.9rem;
+    padding: 1rem;
+    text-align: center;
+  }
+  .photo-stage-skeleton-card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .photo-stage-skeleton-card svg {
+    opacity: 0.25;
+    color: var(--muted);
+  }
+  .photo-dialog-skeleton {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .photo-dialog-skeleton svg {
+    position: absolute;
+    opacity: 0.3;
+    color: var(--muted);
+  }
   .photo-dialog-zoom {
     display: flex;
     flex-wrap: nowrap;

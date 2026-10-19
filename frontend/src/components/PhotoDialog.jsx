@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Dialog, ErrorNotice, Icon, Loading } from "./common";
+import { useRef, useState, useEffect } from "react";
+import { Dialog, ErrorNotice, Icon, Loading, SkeletonPhotoDialog } from "./common";
 
 const MAX_ZOOM = 4;
 
@@ -58,6 +58,7 @@ function PhotoViewer({ photoUrl, title }) {
     observer.observe(stageRef.current);
     return () => observer.disconnect();
   }, []);
+
 
   function pointerDown(event) {
     if (!ready || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -218,7 +219,7 @@ export default function PhotoDialog({
     <Dialog title={title} className="photo-dialog" onClose={onClose}>
       {subtitle && <p className="photo-dialog-subtitle">{subtitle}</p>}
       {loading ? (
-        <div className="photo-dialog-stage"><Loading>Memuat foto…</Loading></div>
+        <SkeletonPhotoDialog />
       ) : error ? (
         <div className="photo-dialog-stage"><ErrorNotice error={error} onRetry={onRetry} /></div>
       ) : photoUrl ? (
