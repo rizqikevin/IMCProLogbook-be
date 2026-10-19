@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
-import { ErrorNotice, Icon, Loading } from "../components/common";
+import { ErrorNotice, Icon, Loading, SkeletonAuth } from "../components/common";
 import { ThemeToggle } from "../theme";
 
 export default function Login() {
@@ -19,7 +19,7 @@ export default function Login() {
     from !== "/login"
       ? from
       : "/";
-  if (status === "loading") return <Loading full>Memeriksa sesi Anda…</Loading>;
+  if (status === "loading") return <SkeletonAuth />;
   if (status === "authenticated") return <Navigate to={destination} replace />;
   if (status === "error")
     return (

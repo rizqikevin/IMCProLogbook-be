@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMachines } from "../hooks";
-import { ErrorNotice, Loading } from "../components/common";
+import { ErrorNotice, SkeletonMachineList } from "../components/common";
 import MachinePhoto from "../components/MachinePhoto";
 
 export default function Archives() {
@@ -11,7 +11,7 @@ export default function Archives() {
         <div><h1>Pilih mesin</h1><p className="muted">Baca dan kirim catatan untuk mesin yang dipilih.</p></div>
       </div>
       <ErrorNotice error={catalog.error} onRetry={catalog.retry} />
-      {catalog.loading ? <Loading>Memuat mesin…</Loading> : !catalog.error && (
+      {catalog.loading ? <SkeletonMachineList /> : !catalog.error && (
         catalog.machines.length ? <nav className="machine-panel" aria-label="Pilih mesin">
           <div className="machine-buttons">
             {catalog.machines.map((machine, index) => (

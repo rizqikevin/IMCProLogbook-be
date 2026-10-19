@@ -5,7 +5,7 @@ import { useMachines, usePhotoUrl } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate, formatTime, validateSelection } from "../lib/format";
 import { flattenPhotos, mergeMessages, messageForm, normalizeMessageText, textLimit, validateMessage } from "../lib/messages";
-import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
+import { Dialog, ErrorNotice, Icon, Loading, SkeletonConversationPage, SkeletonTimeline } from "../components/common";
 import { useMessageDraft } from "../components/MessageDrafts";
 import MachinePhoto from "../components/MachinePhoto";
 import MessagePhoto from "../components/MessagePhoto";
@@ -20,7 +20,7 @@ export default function Conversation() {
   const { machineId } = useParams();
   const catalog = useMachines();
   const machine = catalog.machines.find((item) => String(item.id) === machineId);
-  if (catalog.loading) return <div className="page"><Loading>Memuat mesin…</Loading></div>;
+  if (catalog.loading) return <SkeletonConversationPage />;
   if (catalog.error) return <div className="page"><ErrorNotice error={catalog.error} onRetry={catalog.retry} /></div>;
   if (!machine) return <div className="page"><h1>Mesin tidak ditemukan</h1><Link className="button button-outline" to="/">Pilih mesin</Link></div>;
   return <MachineConversation key={machineId} machine={machine} />;
@@ -338,7 +338,7 @@ function MachineConversation({ machine }) {
       </form>}
       {query && <p className="conversation-search-status" role="status">{state.loading ? "Mencari pesan…" : state.error ? "Pencarian gagal. Coba lagi di bawah." : `Hasil pencarian: ${query}`}</p>}
       <section className="conversation-timeline" ref={timeline} aria-label="Riwayat pesan" tabIndex={0} aria-busy={state.loading}>
-        {state.loading ? <Loading>{query ? "Memuat hasil pencarian…" : "Memuat pesan…"}</Loading> : state.error ? <ErrorNotice error={state.error} onRetry={() => setAttempt((value) => value + 1)} /> : <>
+        {state.loading ? <SkeletonTimeline>{query ? "Memuat hasil pencarian…" : "Memuat pesan…"}</SkeletonTimeline> : state.error ? <ErrorNotice error={state.error} onRetry={() => setAttempt((value) => value + 1)} /> : <>
           {state.cursor && <div className="older-messages"><button type="button" className="button button-outline" onClick={loadOlder} disabled={more.loading}>{more.loading ? "Memuat pesan lama…" : query ? "Muat hasil sebelumnya" : "Muat pesan sebelumnya"}</button></div>}
           <ErrorNotice error={more.error} onRetry={loadOlder} />
           {!items.length && <div className="empty-state"><h2>{query ? "Tidak ada pesan yang cocok" : "Belum ada pesan"}</h2><p>{query ? "Coba teks lain atau reset pencarian untuk melihat seluruh riwayat." : "Tulis catatan atau pilih foto untuk memulai logbook mesin ini."}</p></div>}

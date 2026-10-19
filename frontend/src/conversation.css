@@ -236,6 +236,68 @@
       color: var(--muted);
     }
   }
+  .skeleton-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0.5rem 0;
+    width: 100%;
+  }
+  .skeleton-status-pill {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+  .skeleton-timeline-bubbles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  .skeleton-date-badge {
+    display: flex;
+    justify-content: center;
+    margin: 0.25rem 0;
+  }
+  .skeleton-bubble {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 12px;
+    max-width: 82%;
+    min-width: 180px;
+  }
+  .skeleton-bubble-other {
+    align-self: flex-start;
+    background: var(--bubble-other, #ffffff);
+    border-radius: 2px 12px 12px 12px;
+    border: 1px solid var(--line);
+  }
+  .skeleton-bubble-own {
+    align-self: flex-end;
+    background: var(--bubble-own, #deddf2);
+    border-radius: 12px 2px 12px 12px;
+  }
+  .skeleton-bubble-photo {
+    border-radius: 8px;
+    margin: 0.2rem 0;
+  }
+  .skeleton-bubble-time {
+    align-self: flex-end;
+    margin-top: 0.15rem;
+  }
+  .skeleton-conversation-page {
+    pointer-events: none;
+  }
 }
 @layer responsive {
   @media (min-width: 600px) {

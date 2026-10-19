@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-
+import { Skeleton } from "./Skeleton";
+export * from "./Skeleton";
 export function Icon({ name, size = 20 }) {
   const paths = {
     camera: (
@@ -88,8 +89,15 @@ export function Icon({ name, size = 20 }) {
 export function Loading({ children = "Memuat arsip…", full = false }) {
   return (
     <div className={`loading ${full ? "loading-full" : ""}`} role="status" aria-live="polite">
-      <span className="loading-mark" aria-hidden="true" />
-      <span>{children}</span>
+      <div className="skeleton-generic" aria-hidden="true">
+        <Skeleton variant="text" width="45%" height="14px" />
+        <Skeleton variant="text" width="80%" height="18px" />
+        <Skeleton variant="text" width="65%" height="14px" />
+      </div>
+      <div className="loading-status-text">
+        <span className="loading-mark" aria-hidden="true" />
+        <span>{children}</span>
+      </div>
     </div>
   );
 }

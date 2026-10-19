@@ -14,6 +14,8 @@
     --line: #dce0e9;
     --control: #80889b;
     --danger: #aa302b;
+    --skeleton-bg: #e2e6f0;
+    --skeleton-shimmer: linear-gradient(90deg, #e2e6f0 0%, #f4f6fb 50%, #e2e6f0 100%);
   }
 
   :root[data-theme="dark"] {
@@ -30,6 +32,8 @@
     --line: #2b3648;
     --control: #5e708c;
     --danger: #ff6b6b;
+    --skeleton-bg: #1e2634;
+    --skeleton-shimmer: linear-gradient(90deg, #1e2634 0%, #293448 50%, #1e2634 100%);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -47,6 +51,8 @@
       --line: #2b3648;
       --control: #5e708c;
       --danger: #ff6b6b;
+      --skeleton-bg: #1e2634;
+      --skeleton-shimmer: linear-gradient(90deg, #1e2634 0%, #293448 50%, #1e2634 100%);
     }
   }
 }

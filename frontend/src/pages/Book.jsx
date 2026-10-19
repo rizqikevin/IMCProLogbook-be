@@ -6,7 +6,7 @@ import { useBook, usePhoto } from "../hooks";
 import { queryClient, queryKeys } from "../queryClient";
 import { request } from "../lib/api";
 import { formatBytes, formatDate, formatTime } from "../lib/format";
-import { Dialog, ErrorNotice, Icon, Loading } from "../components/common";
+import { Dialog, ErrorNotice, Icon, Loading, SkeletonBook, SkeletonPhotoStage } from "../components/common";
 import PhotoDialog from "../components/PhotoDialog";
 export default function Book() {
   const { id } = useParams();
@@ -49,7 +49,7 @@ export default function Book() {
         Catatan mesin
       </Link>
       {loading ? (
-        <Loading />
+        <SkeletonBook />
       ) : error ? (
         <ErrorNotice error={error} onRetry={retry} />
       ) : (
@@ -97,7 +97,7 @@ export default function Book() {
               </div>
               <div className="photo-stage">
                 {photo.loading ? (
-                  <Loading>Memuat halaman…</Loading>
+                  <SkeletonPhotoStage />
                 ) : photo.error ? (
                   <ErrorNotice error={photo.error} onRetry={photo.retry} />
                 ) : photo.url ? (

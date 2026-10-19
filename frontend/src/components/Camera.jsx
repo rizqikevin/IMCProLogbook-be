@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, Icon, Loading } from "./common";
+import { Dialog, Icon, Loading, SkeletonCamera } from "./common";
 
 export default function Camera({ onClose, onCapture, onRemove, photos, maximum }) {
   const count = photos.length;
@@ -188,7 +188,7 @@ export default function Camera({ onClose, onCapture, onRemove, photos, maximum }
             <p>{error}</p>
             <button type="button" className="button button-outline" onClick={() => setAttempt((value) => value + 1)}>Coba lagi</button>
           </div>
-        ) : !ready && <Loading>Membuka kamera…</Loading>}
+        ) : !ready && <SkeletonCamera />}
       </div>
       <div className="camera-selection">
         <div className="camera-status" role="status">

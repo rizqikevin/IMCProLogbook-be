@@ -2,7 +2,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { useCatalog, useShiftArchive } from "../hooks";
 import { validDate } from "../lib/shifts";
 import { formatDate } from "../lib/format";
-import { ErrorNotice, Loading } from "../components/common";
+import { ErrorNotice, Loading, SkeletonShiftArchive } from "../components/common";
 import ShiftNavigation from "../components/ShiftNavigation";
 export default function ShiftArchive() {
   const { machineId, date, shiftId } = useParams();
@@ -19,7 +19,7 @@ export default function ShiftArchive() {
   } = useShiftArchive(machineId, date, shiftId, {
     enabled: Boolean(machine && valid),
   });
-  if (catalog.loading) return <Loading />;
+  if (catalog.loading) return <SkeletonShiftArchive />;
   if (catalog.error)
     return (
       <div className="page">
@@ -35,7 +35,7 @@ export default function ShiftArchive() {
         </Link>
       </div>
     );
-  if (shiftLoading) return <Loading />;
+  if (shiftLoading) return <SkeletonShiftArchive />;
   if (book) return <Navigate to={`/logbooks/${book.id}`} replace />;
   return (
     <div className="page book-page">

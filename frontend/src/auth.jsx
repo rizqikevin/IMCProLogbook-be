@@ -8,7 +8,7 @@ import {
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { readSession, request, saveSession } from "./lib/api";
 import { queryClient } from "./queryClient";
-import { ErrorNotice, Loading } from "./components/common";
+import { ErrorNotice, Loading, SkeletonAuth } from "./components/common";
 
 const AuthContext = createContext(null);
 
@@ -113,7 +113,7 @@ export function useAuth() {
 export function RequireAuth() {
   const { status, error, retry } = useAuth();
   const location = useLocation();
-  if (status === "loading") return <Loading full>Memeriksa sesi Anda…</Loading>;
+  if (status === "loading") return <SkeletonAuth />;
   if (status === "error")
     return (
       <main className="standalone">

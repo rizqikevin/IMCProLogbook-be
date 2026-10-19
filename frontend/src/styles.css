@@ -63,6 +63,8 @@
     --line: #d8ded3;
     --control: #84907f;
     --danger: #aa302b;
+    --skeleton-bg: #e2e6f0;
+    --skeleton-shimmer: linear-gradient(90deg, #e2e6f0 0%, #f4f6fb 50%, #e2e6f0 100%);
   }
   body {
     min-width: 320px;
@@ -370,11 +372,51 @@
     color: var(--muted);
     font-size: 0.73rem;
   }
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  .skeleton {
+    display: inline-block;
+    background-color: var(--skeleton-bg);
+    background-image: var(--skeleton-shimmer);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  .skeleton-text {
+    display: block;
+    border-radius: 4px;
+  }
+  .skeleton-rectangular {
+    display: block;
+    border-radius: 0;
+  }
+  .skeleton-rounded {
+    display: block;
+    border-radius: 6px;
+  }
+  .skeleton-circular {
+    display: block;
+    border-radius: 50%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none !important;
+      background-image: none !important;
+      opacity: 0.75;
+    }
+  }
   .loading {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.85rem;
+    gap: 1.25rem;
     min-height: 200px;
     padding: 2rem;
     color: var(--muted);
@@ -389,6 +431,134 @@
     border: 2px solid var(--control);
     border-top-color: var(--green);
     border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .loading-status-text {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+  .skeleton-generic {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 320px;
+    padding: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .skeleton-machine-panel {
+    pointer-events: none;
+  }
+  .machine-option-skeleton {
+    pointer-events: none;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .skeleton-machine-photo {
+    width: 100%;
+    height: 100%;
+    min-height: 140px;
+  }
+  .skeleton-photo-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .skeleton-stage-shimmer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .skeleton-photo-status {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  .skeleton-camera-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    background: #12151b;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .camera-preview-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #12151b;
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 2;
+  }
+  .skeleton-camera-shimmer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.3;
+  }
+  .skeleton-book-page,
+  .skeleton-shift-page {
+    pointer-events: none;
+  }
+  .skeleton-shift-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .skeleton-empty-box {
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .skeleton-auth-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    min-height: 100dvh;
+    background: var(--paper);
+  }
+  .skeleton-auth-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   }
   .notice {
     display: flex;
