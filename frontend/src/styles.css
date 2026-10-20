@@ -1119,6 +1119,7 @@
     max-height: calc(100dvh - 2rem);
     padding: 1rem;
   }
+  .photo-dialog-exit-hint { display: none; }
   .photo-dialog .dialog-heading {
     margin-bottom: 0.35rem;
     gap: 0.75rem;
@@ -1668,6 +1669,83 @@
     .account-name {
       max-width: 80px;
     }
+  }
+  @media (max-width: 700px) {
+    .dialog.photo-dialog {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      max-width: none;
+      height: 100dvh;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+    }
+    .photo-dialog .dialog-heading,
+    .photo-dialog .photo-dialog-subtitle,
+    .photo-dialog .photo-dialog-caption,
+    .photo-dialog .photo-dialog-hint,
+    .photo-dialog .photo-dialog-download,
+    .photo-dialog .photo-dialog-reset,
+    .photo-dialog .photo-dialog-tool-divider { display: none; }
+    .photo-dialog .dialog-heading h2,
+    .photo-dialog .photo-dialog-exit-hint,
+    .photo-dialog .photo-dialog-counter,
+    .photo-dialog .photo-dialog-zoom output {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
+    .photo-dialog .photo-dialog-exit-hint { display: block; }
+    .photo-dialog .photo-dialog-stage {
+      position: absolute;
+      inset: 0 0 calc(68px + env(safe-area-inset-bottom, 0px));
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: #000;
+    }
+    .photo-dialog .photo-dialog-stage img { max-height: 100%; }
+    .photo-dialog .photo-dialog-zoom {
+      position: absolute;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 8px;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+    .photo-dialog .photo-dialog-nav {
+      position: absolute;
+      inset: auto 0 calc(12px + env(safe-area-inset-bottom, 0px));
+      margin: 0;
+      padding: 0 max(12px, env(safe-area-inset-left, 0px)) 0 max(12px, env(safe-area-inset-right, 0px));
+      border: 0;
+      pointer-events: none;
+    }
+    .photo-dialog .photo-dialog-pager { width: 100%; justify-content: space-between; }
+    .photo-dialog .photo-viewer-control { background: #20354e; color: #fff; pointer-events: auto; }
+    .photo-dialog .photo-viewer-control:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+    .photo-dialog .photo-dialog-viewport:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
+    .photo-dialog .photo-viewer-control:hover:not(:disabled),
+    .photo-dialog .photo-viewer-control:active:not(:disabled) { background: #365675; }
   }
   @media (prefers-reduced-motion: reduce) {
     *,

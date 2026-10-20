@@ -160,7 +160,7 @@ function PhotoViewer({ photoUrl, title }) {
         <span className="photo-dialog-tool-divider" aria-hidden="true" />
         <button
           type="button"
-          className="photo-viewer-control"
+          className="photo-viewer-control photo-dialog-reset"
           aria-label="Atur ulang ukuran dan rotasi foto"
           title={view.scale !== 1 ? "Atur ulang ukuran foto (100%)" : rotation !== 0 ? "Atur ulang rotasi (0°)" : "Atur ulang"}
           disabled={!ready || (view.scale === 1 && view.x === 0 && view.y === 0 && rotation === 0)}
@@ -201,6 +201,45 @@ export default function PhotoDialog({
   counterText,
   onClose,
 }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const historyEntry = useRef(null);
+
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 700px)").matches) return;
+    let cancelled = false;
+    const marker = `photo-${Date.now()}`;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Defer history mutation so StrictMode's discarded effect adds no entry.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      historyEntry.current = marker;
+      window.history.pushState({ ...window.history.state, photoViewer: marker }, "");
+    });
+    function handleBack() {
+      historyEntry.current = null;
+      closeRef.current();
+    }
+    window.addEventListener("popstate", handleBack);
+    return () => {
+      cancelled = true;
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("popstate", handleBack);
+      if (historyEntry.current === marker && window.history.state?.photoViewer === marker) {
+        historyEntry.current = null;
+        window.history.back();
+      }
+    };
+  }, []);
+
+  function closeViewer() {
+    if (historyEntry.current && window.history.state?.photoViewer === historyEntry.current) {
+      window.history.back();
+    } else {
+      onClose();
+    }
+  }
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === "ArrowLeft" && hasPrev && onPrev) {
@@ -216,7 +255,8 @@ export default function PhotoDialog({
   }, [hasPrev, hasNext, onPrev, onNext]);
 
   return (
-    <Dialog title={title} className="photo-dialog" onClose={onClose}>
+    <Dialog title={title} className="photo-dialog" onClose={closeViewer}>
+      <p className="photo-dialog-exit-hint">Gunakan tombol Kembali atau Escape untuk menutup foto.</p>
       {subtitle && <p className="photo-dialog-subtitle">{subtitle}</p>}
       {loading ? (
         <SkeletonPhotoDialog />
