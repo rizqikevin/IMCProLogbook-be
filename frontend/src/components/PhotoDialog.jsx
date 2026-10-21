@@ -1,9 +1,15 @@
 import { useRef, useState, useEffect } from "react";
-import { Dialog, ErrorNotice, Icon, Loading, SkeletonPhotoDialog } from "./common";
+import {
+  Dialog,
+  ErrorNotice,
+  Icon,
+  Loading,
+  SkeletonPhotoDialog,
+} from "./common";
 
 const MAX_ZOOM = 4;
 
-function PhotoViewer({ photoUrl, title }) {
+function PhotoViewer({ photoUrl, title, onClose }) {
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const pointers = useRef(new Map());
@@ -59,13 +65,15 @@ function PhotoViewer({ photoUrl, title }) {
     return () => observer.disconnect();
   }, []);
 
-
   function pointerDown(event) {
     if (!ready || (event.pointerType === "mouse" && event.button !== 0)) return;
     event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    pointers.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
     setDragging(true);
   }
 
@@ -74,23 +82,38 @@ function PhotoViewer({ photoUrl, title }) {
     const previous = points.get(event.pointerId);
     if (!previous) return;
     const current = { x: event.clientX, y: event.clientY };
-    const other = [...points.entries()].find(([id]) => id !== event.pointerId)?.[1];
+    const other = [...points.entries()].find(
+      ([id]) => id !== event.pointerId,
+    )?.[1];
     const old = viewRef.current;
     if (other) {
       const before = Math.hypot(previous.x - other.x, previous.y - other.y);
       const after = Math.hypot(current.x - other.x, current.y - other.y);
-      const scale = Math.min(MAX_ZOOM, Math.max(1, old.scale * (before ? after / before : 1)));
+      const scale = Math.min(
+        MAX_ZOOM,
+        Math.max(1, old.scale * (before ? after / before : 1)),
+      );
       const rect = event.currentTarget.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const ratio = scale / old.scale;
       updateView({
         scale,
-        x: (current.x + other.x) / 2 - centerX - ((previous.x + other.x) / 2 - centerX - old.x) * ratio,
-        y: (current.y + other.y) / 2 - centerY - ((previous.y + other.y) / 2 - centerY - old.y) * ratio,
+        x:
+          (current.x + other.x) / 2 -
+          centerX -
+          ((previous.x + other.x) / 2 - centerX - old.x) * ratio,
+        y:
+          (current.y + other.y) / 2 -
+          centerY -
+          ((previous.y + other.y) / 2 - centerY - old.y) * ratio,
       });
     } else {
-      updateView({ ...old, x: old.x + current.x - previous.x, y: old.y + current.y - previous.y });
+      updateView({
+        ...old,
+        x: old.x + current.x - previous.x,
+        y: old.y + current.y - previous.y,
+      });
     }
     points.set(event.pointerId, current);
   }
@@ -102,20 +125,38 @@ function PhotoViewer({ photoUrl, title }) {
 
   function handleKeyDown(event) {
     if (!ready) return;
-    const steps = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] };
+    const steps = {
+      ArrowLeft: [40, 0],
+      ArrowRight: [-40, 0],
+      ArrowUp: [0, 40],
+      ArrowDown: [0, -40],
+    };
     if (event.shiftKey && steps[event.key]) {
       event.preventDefault();
       event.stopPropagation();
       const [x, y] = steps[event.key];
-      updateView({ ...viewRef.current, x: viewRef.current.x + x, y: viewRef.current.y + y });
+      updateView({
+        ...viewRef.current,
+        x: viewRef.current.x + x,
+        y: viewRef.current.y + y,
+      });
     }
   }
 
   useEffect(() => {
     function onKeyDown(event) {
       if (!ready) return;
-      if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") return;
-      if ((event.key === "r" || event.key === "R") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (
+        event.target.tagName === "INPUT" ||
+        event.target.tagName === "TEXTAREA"
+      )
+        return;
+      if (
+        (event.key === "r" || event.key === "R") &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+      ) {
         event.preventDefault();
         rotate(event.shiftKey ? -1 : 1);
       }
@@ -138,6 +179,18 @@ function PhotoViewer({ photoUrl, title }) {
         onPointerCancel={pointerEnd}
         onLostPointerCapture={pointerEnd}
       >
+        <button
+          type="button"
+          className="photo-dialog-close"
+          aria-label="Tutup"
+          title="Tutup"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        >
+          <Icon name="close" />
+        </button>
         <img
           ref={imageRef}
           src={photoUrl}
@@ -148,22 +201,69 @@ function PhotoViewer({ photoUrl, title }) {
             transition: dragging ? "none" : "transform 0.15s ease",
             visibility: ready ? "visible" : "hidden",
           }}
-          onLoad={() => { setReady(true); updateView(viewRef.current); }}
-          onError={() => { setFailed(true); setReady(false); }}
+          onLoad={() => {
+            setReady(true);
+            updateView(viewRef.current);
+          }}
+          onError={() => {
+            setFailed(true);
+            setReady(false);
+          }}
         />
-        {!ready && <div className="photo-dialog-image-status">{failed ? "Foto tidak dapat ditampilkan." : <Loading>Memuat foto…</Loading>}</div>}
+        {!ready && (
+          <div className="photo-dialog-image-status">
+            {failed ? (
+              "Foto tidak dapat ditampilkan."
+            ) : (
+              <Loading>Memuat foto…</Loading>
+            )}
+          </div>
+        )}
       </div>
-      <div className="photo-dialog-zoom" role="group" aria-label="Ukuran dan rotasi foto">
-        <button type="button" className="photo-viewer-control" aria-label="Perkecil foto" title="Perkecil foto" disabled={!ready || view.scale <= 1} onClick={() => zoom(view.scale - 0.5)}><Icon name="minus" /></button>
-        <output aria-live="polite" aria-label="Pembesaran foto">{Math.round(view.scale * 100)}%</output>
-        <button type="button" className="photo-viewer-control" aria-label="Perbesar foto" title="Perbesar foto" disabled={!ready || view.scale >= MAX_ZOOM} onClick={() => zoom(view.scale + 0.5)}><Icon name="plus" /></button>
+      <div
+        className="photo-dialog-zoom"
+        role="group"
+        aria-label="Ukuran dan rotasi foto"
+      >
+        <button
+          type="button"
+          className="photo-viewer-control"
+          aria-label="Perkecil foto"
+          title="Perkecil foto"
+          disabled={!ready || view.scale <= 1}
+          onClick={() => zoom(view.scale - 0.5)}
+        >
+          <Icon name="minus" />
+        </button>
+        <output aria-live="polite" aria-label="Pembesaran foto">
+          {Math.round(view.scale * 100)}%
+        </output>
+        <button
+          type="button"
+          className="photo-viewer-control"
+          aria-label="Perbesar foto"
+          title="Perbesar foto"
+          disabled={!ready || view.scale >= MAX_ZOOM}
+          onClick={() => zoom(view.scale + 0.5)}
+        >
+          <Icon name="plus" />
+        </button>
         <span className="photo-dialog-tool-divider" aria-hidden="true" />
         <button
           type="button"
           className="photo-viewer-control photo-dialog-reset"
           aria-label="Atur ulang ukuran dan rotasi foto"
-          title={view.scale !== 1 ? "Atur ulang ukuran foto (100%)" : rotation !== 0 ? "Atur ulang rotasi (0°)" : "Atur ulang"}
-          disabled={!ready || (view.scale === 1 && view.x === 0 && view.y === 0 && rotation === 0)}
+          title={
+            view.scale !== 1
+              ? "Atur ulang ukuran foto (100%)"
+              : rotation !== 0
+                ? "Atur ulang rotasi (0°)"
+                : "Atur ulang"
+          }
+          disabled={
+            !ready ||
+            (view.scale === 1 && view.x === 0 && view.y === 0 && rotation === 0)
+          }
           onClick={reset}
         >
           <Icon name="fit" />
@@ -172,7 +272,11 @@ function PhotoViewer({ photoUrl, title }) {
         <button
           type="button"
           className="photo-viewer-control"
-          aria-label={rotation ? `Putar foto 90 derajat searah jarum jam (saat ini ${rotation}°)` : "Putar foto 90 derajat searah jarum jam"}
+          aria-label={
+            rotation
+              ? `Putar foto 90 derajat searah jarum jam (saat ini ${rotation}°)`
+              : "Putar foto 90 derajat searah jarum jam"
+          }
           title="Putar foto 90° (R)"
           disabled={!ready}
           onClick={(event) => rotate(event.shiftKey ? -1 : 1)}
@@ -180,7 +284,10 @@ function PhotoViewer({ photoUrl, title }) {
           <Icon name="rotate" />
         </button>
       </div>
-      <p className="photo-dialog-hint">Cubit untuk zoom · Putar foto (R) · Geser saat diperbesar<span> · Shift + panah untuk menggeser</span></p>
+      <p className="photo-dialog-hint">
+        Cubit untuk zoom · Putar foto (R) · Geser saat diperbesar
+        <span> · Shift + panah untuk menggeser</span>
+      </p>
     </>
   );
 }
@@ -215,7 +322,10 @@ export default function PhotoDialog({
     queueMicrotask(() => {
       if (cancelled) return;
       historyEntry.current = marker;
-      window.history.pushState({ ...window.history.state, photoViewer: marker }, "");
+      window.history.pushState(
+        { ...window.history.state, photoViewer: marker },
+        "",
+      );
     });
     function handleBack() {
       historyEntry.current = null;
@@ -226,7 +336,10 @@ export default function PhotoDialog({
       cancelled = true;
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("popstate", handleBack);
-      if (historyEntry.current === marker && window.history.state?.photoViewer === marker) {
+      if (
+        historyEntry.current === marker &&
+        window.history.state?.photoViewer === marker
+      ) {
         historyEntry.current = null;
         window.history.back();
       }
@@ -234,7 +347,10 @@ export default function PhotoDialog({
   }, []);
 
   function closeViewer() {
-    if (historyEntry.current && window.history.state?.photoViewer === historyEntry.current) {
+    if (
+      historyEntry.current &&
+      window.history.state?.photoViewer === historyEntry.current
+    ) {
       window.history.back();
     } else {
       onClose();
@@ -256,14 +372,23 @@ export default function PhotoDialog({
 
   return (
     <Dialog title={title} className="photo-dialog" onClose={closeViewer}>
-      <p className="photo-dialog-exit-hint">Gunakan tombol Kembali atau Escape untuk menutup foto.</p>
+      <p className="photo-dialog-exit-hint">
+        Gunakan tombol Kembali atau Escape untuk menutup foto.
+      </p>
       {subtitle && <p className="photo-dialog-subtitle">{subtitle}</p>}
       {loading ? (
         <SkeletonPhotoDialog />
       ) : error ? (
-        <div className="photo-dialog-stage"><ErrorNotice error={error} onRetry={onRetry} /></div>
+        <div className="photo-dialog-stage">
+          <ErrorNotice error={error} onRetry={onRetry} />
+        </div>
       ) : photoUrl ? (
-        <PhotoViewer key={`${photoUrl}:${counterText || ""}`} photoUrl={photoUrl} title={title} />
+        <PhotoViewer
+          key={`${photoUrl}:${counterText || ""}`}
+          photoUrl={photoUrl}
+          title={title}
+          onClose={closeViewer}
+        />
       ) : null}
       {caption && <p className="photo-dialog-caption">{caption}</p>}
       <div className="photo-dialog-nav">
@@ -279,7 +404,9 @@ export default function PhotoDialog({
             <Icon name="previous" />
           </button>
           {counterText && (
-            <span className="photo-dialog-counter" aria-live="polite">{counterText}</span>
+            <span className="photo-dialog-counter" aria-live="polite">
+              {counterText}
+            </span>
           )}
           <button
             type="button"

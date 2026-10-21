@@ -1146,6 +1146,9 @@
     overflow: hidden;
     padding: 0.5rem;
   }
+  .photo-dialog-close {
+    display: none;
+  }
   :root[data-theme="dark"] .photo-dialog-stage {
     background: #0f1318;
     border-color: var(--line);
@@ -1746,6 +1749,27 @@
     .photo-dialog .photo-dialog-viewport:focus-visible { outline: 3px solid #fff; outline-offset: -3px; }
     .photo-dialog .photo-viewer-control:hover:not(:disabled),
     .photo-dialog .photo-viewer-control:active:not(:disabled) { background: #365675; }
+    .photo-dialog .photo-dialog-close {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top, 0px));
+      right: max(12px, env(safe-area-inset-right, 0px));
+      z-index: 10;
+      width: 44px;
+      height: 44px;
+      padding: 8px;
+      background: #20354e;
+      color: #fff;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+    }
+    .photo-dialog .photo-dialog-close:hover { background: #365675; }
+    .photo-dialog .photo-dialog-close:active { background: #4a7ba7; }
+    .photo-dialog .photo-dialog-close:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *,

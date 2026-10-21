@@ -117,6 +117,9 @@ test("machine conversation persists exact text, photos, both, and historical arc
   await expect(dialogImg).toHaveAttribute("style", /rotate\(0deg\)/);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await open.click();
+  await page.getByRole("dialog").getByRole("button", { name: "Tutup", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await accessible(page);
   const viewport = page.viewportSize();
   for (const width of [320, 768, 1024]) {
