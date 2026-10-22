@@ -67,6 +67,15 @@ async function send(page) {
   return result.json();
 }
 
+test("inline coating machine is selectable with shared coating photo", async ({ page }) => {
+  await login(page);
+  const card = page.getByRole("link", { name: "COATING INLINE", exact: true });
+  await expect(card).toBeVisible();
+  await expect(card.locator("img")).toHaveAttribute("src", /\/machine\/coating\.png$/);
+  await choose(page, "COATING INLINE");
+  await accessible(page);
+});
+
 test("machine conversation persists exact text, photos, both, and historical archives", async ({ page }, testInfo) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));

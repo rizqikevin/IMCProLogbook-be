@@ -29,8 +29,8 @@ system sans-serif and existing ENERGY 1 / RHYTHM 2 / MOTION 1 dials remain.
 ## Machine photography
 
 User-supplied machine cutouts identify the initial machine chooser: MAILENDER, MS3, COATING
-(shared by COATING 1–3), and RuiYuan. Contain-fit images preserve the full machine.
-Six columns on wide screens become three on tablets and two on phones. A small
+(shared by COATING 1–3 and COATING INLINE), and RuiYuan. Contain-fit images preserve the full
+machine. Up to six columns on wide screens become three on tablets and two on phones. A small
 machine photo beside the conversation heading keeps the destination visible.
 
 ## Conversation layout

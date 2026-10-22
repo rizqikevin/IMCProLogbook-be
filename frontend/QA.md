@@ -179,9 +179,7 @@ arah dalam DESIGN.md, tanpa data tambahan atau perubahan alur upload.
 
 All six machine cards load their supplied photos and filter by the selected machine.
 Six desktop/mobile E2E tests passed, including upload workflows, axe, and overflow.
-After correcting selected-card caption contrast, both gallery tests passed again
-at widths 320, 390, 768, and 1440. Screenshots were reviewed and the Docker frontend
-rebuilt. Photos use contain-fit without cropping; coating machines share one photo.
+After correcting selected-card caption contrast, both gallery tests passed again at widths 320, 390, 768, and 1440. Screenshots were reviewed and the Docker frontend rebuilt. Photos use contain-fit without cropping; coating machines share one photo.
 
 ## Machine-first archive flow · 30 September 2026
 

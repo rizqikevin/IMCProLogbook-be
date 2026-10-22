@@ -5,6 +5,7 @@ const photos = {
   "COATING 1": "coating",
   "COATING 2": "coating",
   "COATING 3": "coating",
+  "COATING INLINE": "coating",
   RUIYUAN: "ruiyuan",
 };
 
