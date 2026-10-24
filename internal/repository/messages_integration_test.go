@@ -245,7 +245,7 @@ func TestIntegrationMessageMigrationPreservesExistingArchive(t *testing.T) {
 		t.Fatalf("migrated page=%+v err=%v", page, err)
 	}
 	message := page[0]
-	if message.Text != "" || message.Author.ID != book.CreatedBy || message.Author.Name != user.Name || !message.CreatedAt.Equal(book.CreatedAt) || message.LegacyArchive == nil || message.LegacyArchive.ID != book.ID || message.LegacyArchive.LogDate != book.LogDate || message.LegacyArchive.Shift != book.Shift || len(message.Photos) != 1 || message.Photos[0] != book.Photos[0] {
+	if message.Text != "" || message.Author.ID != book.CreatedBy || message.Author.Name != user.Name || !message.CreatedAt.Equal(book.CreatedAt) || message.LegacyArchive == nil || message.LegacyArchive.ID != book.ID || message.LegacyArchive.LogDate != book.LogDate || message.LegacyArchive.Shift != book.Shift || len(message.Photos) != 1 || message.Photos[0].ID != book.Photos[0].ID || message.Photos[0].PageNumber != book.Photos[0].PageNumber || message.Photos[0].ContentType != book.Photos[0].ContentType || message.Photos[0].Size != book.Photos[0].Size || message.Photos[0].StorageKey != book.Photos[0].StorageKey || message.Photos[0].SHA256 != book.Photos[0].SHA256 || message.Photos[0].UploadedBy != book.Photos[0].UploadedBy || !message.Photos[0].CreatedAt.Equal(book.Photos[0].CreatedAt) {
 		t.Fatalf("migration changed historical content: %+v", message)
 	}
 	if _, err := repo.Photo(ctx, book.ID, photo.ID); err != nil {

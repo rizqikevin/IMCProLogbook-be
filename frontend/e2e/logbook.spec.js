@@ -67,6 +67,48 @@ async function send(page) {
   return result.json();
 }
 
+test("photo markers persist through reload and transformed placement", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  const message = await send(page);
+  const entry = page.locator(".message-entry").last();
+  await entry.locator(".message-photo-open").click();
+  const stage = page.locator(".photo-dialog-viewport");
+  const markerButton = page.getByRole("button", { name: "Aktifkan marker foto", exact: true });
+  await expect(markerButton).toBeEnabled();
+  await markerButton.click();
+  const image = page.locator(".photo-dialog-image-layer img");
+  let box = await image.boundingBox();
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.75);
+  await expect(page.locator(".photo-dialog-marker")).toHaveCount(1);
+  await page.getByRole("button", { name: "Putar foto 90 derajat searah jarum jam", exact: true }).click();
+  await page.getByRole("button", { name: "Perbesar foto", exact: true }).click();
+  await expect(page.getByLabel("Pembesaran foto", { exact: true })).toHaveText("150%");
+  await expect.poll(async () => image.evaluate((el) => getComputedStyle(el.parentElement).transform)).toBe("matrix(0, 1.5, -1.5, 0, 0, 0)");
+  box = await image.boundingBox();
+  await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.7);
+  await expect(page.locator(".photo-dialog-marker")).toHaveCount(2);
+  const saved = await page.request.get(`${message.photos[0].url}/markers`, { headers: { Authorization: `Bearer ${await token(page)}` } });
+  const { items } = await saved.json();
+  expect(items[0].x).toBeCloseTo(0.25, 1);
+  expect(items[0].y).toBeCloseTo(0.75, 1);
+  expect(items[1].x).toBeCloseTo(0.7, 1);
+  expect(items[1].y).toBeCloseTo(0.4, 1);
+  await stage.focus();
+  const cursor = page.locator(".photo-dialog-marker-cursor");
+  const before = await cursor.boundingBox();
+  await page.keyboard.press("ArrowRight");
+  const after = await cursor.boundingBox();
+  expect(after.x).toBeGreaterThan(before.x);
+  expect(after.y).toBeCloseTo(before.y, 1);
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".photo-dialog-marker")).toHaveCount(3);
+  await page.reload();
+  await page.locator(".message-entry").last().locator(".message-photo-open").click();
+  await expect(page.locator(".photo-dialog-marker")).toHaveCount(3);
+});
+
 test("inline coating machine is selectable with shared coating photo", async ({ page }) => {
   await login(page);
   const card = page.getByRole("link", { name: "COATING INLINE", exact: true });

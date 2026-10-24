@@ -41,16 +41,24 @@ type Session struct {
 	User      User
 	ExpiresAt time.Time
 }
+type PhotoMarker struct {
+	ID        string    `json:"id"`
+	X         float64   `json:"x"`
+	Y         float64   `json:"y"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
 type Photo struct {
-	ID          string    `json:"id"`
-	PageNumber  int       `json:"page_number"`
-	ContentType string    `json:"content_type"`
-	Size        int64     `json:"size"`
-	StorageKey  string    `json:"-"`
-	SHA256      string    `json:"sha256"`
-	UploadedBy  string    `json:"uploaded_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	URL         string    `json:"url"`
+	ID          string        `json:"id"`
+	PageNumber  int           `json:"page_number"`
+	ContentType string        `json:"content_type"`
+	Size        int64         `json:"size"`
+	StorageKey  string        `json:"-"`
+	SHA256      string        `json:"sha256"`
+	UploadedBy  string        `json:"uploaded_by"`
+	CreatedAt   time.Time     `json:"created_at"`
+	URL         string        `json:"url"`
+	Markers     []PhotoMarker `json:"markers"`
 }
 type Logbook struct {
 	ID         string    `json:"id"`

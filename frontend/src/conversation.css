@@ -1,3 +1,9 @@
+  .photo-dialog-markers { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .photo-dialog-marker { position: absolute; width: 16px; height: 16px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: #ba2d2d; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
+  .photo-viewer-control.is-active { color: var(--green); background: var(--green-pale); }
+  .photo-dialog-image-layer { position: relative; flex: none; transform-origin: center; }
+  .photo-dialog-image-layer img { display: block; width: 100%; height: 100%; }
+  .photo-dialog-marker-cursor { position: absolute; width: 20px; height: 20px; border: 2px solid white; outline: 1px solid black; border-radius: 50%; transform: translate(-50%, -50%); }
 @layer components {
   .conversation-main { min-height: 0; }
   .conversation-page { position: fixed; inset: 0 0 auto; height: 100dvh; display: flex; flex-direction: column; min-width: 0; background: var(--paper); }

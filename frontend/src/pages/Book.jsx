@@ -209,6 +209,7 @@ export default function Book() {
               subtitle={`${formatDate(book.log_date)}, ${book.shift.name}`}
               counterText={`Halaman ${selected?.page_number || index + 1} dari ${book.photo_count}`}
               photoUrl={photo.url}
+              markerPhotoUrl={selected?.url}
               loading={photo.loading}
               error={photo.error}
               onRetry={photo.retry}

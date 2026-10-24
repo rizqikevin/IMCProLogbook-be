@@ -1,5 +1,37 @@
 # Verifikasi frontend
 
+## Arah kursor marker setelah rotasi · 24 Oktober 2026
+
+- Sebelum perbaikan, ArrowRight pada foto diputar 90° menggeser kursor ke bawah
+  11,7 px, bukan ke kanan. Handler kini membalik rotasi untuk arah keyboard.
+- Smoke Chromium memakai komponen PhotoDialog nyata dengan gambar potret dan
+  penyimpanan marker dalam memori: viewport 1440×1000 dan 390×844, zoom 150%,
+  rotasi 0°/90°/180°/270°. Empat arah panah sesuai layar; marker dari Enter dan
+  klik tepat pada target dengan selisih kurang dari 1 px. Seret tidak menambah
+  marker dan tidak ada overflow horizontal. Screenshot desktop/mobile diperiksa.
+- Kontrol Perkecil, Nonaktifkan marker, dan Tutup foto bekerja pada viewport mobile.
+- Unit frontend: 17 lulus; build production lulus. Regresi Playwright diperketat
+  untuk arah kursor setelah rotasi, tetapi suite API/PostgreSQL tidak dijalankan:
+  Docker daemon tidak aktif dan tool PostgreSQL lokal tidak tersedia.
+- Batas: penyimpanan server dan perangkat sentuh fisik tidak diuji ulang.
+
+## Marker foto · 23 Oktober 2026
+
+- Regresi Playwright marker: desktop dan Pixel 7 lulus (2 tes). Klik, rotasi,
+  zoom, keyboard, dan persistensi setelah reload memakai API/PostgreSQL nyata.
+- Smoke browser terhadap image Docker dengan database terisolasi: upload foto,
+  tambah dua titik, rotasi 90° dan zoom 150%, posisi titik sesuai klik (<2 px),
+  seret tidak menambah titik, reload mempertahankan marker.
+- Viewport 390×844: tap menambah titik ketiga, tanpa overflow horizontal,
+  tombol tutup bekerja. Screenshot desktop/mobile diperiksa; tidak ada exception.
+- Tes HTTP/PostgreSQL mencakup foto pesan dan arsip, batas koordinat, JSON tidak
+  lengkap, pembaca tanpa izin mutasi, path mesin salah, serta tambah/baca/hapus.
+- Unit frontend: 17 lulus. Backend httpapi/service/repository lulus dengan
+  TEST_DATABASE_URL menuju PostgreSQL Docker terisolasi. Image app/web dibangun
+  ulang dan stack lokal diperbarui tanpa menghapus data pengguna.
+- Batas: bukan pengujian perangkat fisik atau penyimpanan S3 production.
+
+
 ## Edit teks pesan · 19 Oktober 2026
 
 - `go test ./...` dengan PostgreSQL terisolasi, unit test frontend, dan build

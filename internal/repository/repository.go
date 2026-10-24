@@ -285,6 +285,49 @@ func (r *Repository) Photo(ctx context.Context, bookID, photoID string) (domain.
 	return scanPhoto(r.pool.QueryRow(ctx, `SELECT `+photoColumns+` FROM logbook_photos
 		WHERE logbook_id = $1::uuid AND id = $2::uuid`, bookID, photoID))
 }
+func (r *Repository) PhotoMarkerAccess(ctx context.Context, photoID, parentID, parentKind string) (string, error) {
+	var uploader string
+	err := r.pool.QueryRow(ctx, `SELECT uploaded_by::text FROM logbook_photos WHERE id=$1::uuid AND logbook_id=$2::uuid AND $3='logbook' UNION ALL SELECT uploaded_by::text FROM message_photos WHERE id=$1::uuid AND message_id=$2::uuid AND $3='message'`, photoID, parentID, parentKind).Scan(&uploader)
+	return uploader, mapError(err)
+}
+
+func (r *Repository) ListPhotoMarkers(ctx context.Context, photoID, parentID, parentKind string) ([]domain.PhotoMarker, error) {
+	rows, err := r.pool.Query(ctx, `SELECT pm.id::text, pm.x, pm.y, pm.created_by::text, pm.created_at FROM photo_markers pm WHERE pm.photo_id = $1::uuid AND (($3 = 'logbook' AND EXISTS (SELECT 1 FROM logbook_photos p WHERE p.id = pm.photo_id AND p.logbook_id = $2::uuid)) OR ($3 = 'message' AND EXISTS (SELECT 1 FROM message_photos p WHERE p.id = pm.photo_id AND p.message_id = $2::uuid))) ORDER BY pm.created_at, pm.id`, photoID, parentID, parentKind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	markers := make([]domain.PhotoMarker, 0)
+	for rows.Next() {
+		var marker domain.PhotoMarker
+		if err := rows.Scan(&marker.ID, &marker.X, &marker.Y, &marker.CreatedBy, &marker.CreatedAt); err != nil {
+			return nil, err
+		}
+		markers = append(markers, marker)
+	}
+	return markers, rows.Err()
+}
+func (r *Repository) AddPhotoMarker(ctx context.Context, photoID, parentID, parentKind string, marker domain.PhotoMarker, role string) (domain.PhotoMarker, error) {
+	var exists bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM logbook_photos WHERE id=$1::uuid AND logbook_id=$2::uuid AND $3='logbook' UNION ALL SELECT 1 FROM message_photos WHERE id=$1::uuid AND message_id=$2::uuid AND $3='message')`, photoID, parentID, parentKind).Scan(&exists); err != nil {
+		return marker, err
+	}
+	if !exists {
+		return marker, domain.ErrNotFound
+	}
+	err := r.pool.QueryRow(ctx, `INSERT INTO photo_markers(id, photo_id, x, y, created_by) VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid) RETURNING created_at`, marker.ID, photoID, marker.X, marker.Y, marker.CreatedBy).Scan(&marker.CreatedAt)
+	return marker, mapError(err)
+}
+func (r *Repository) DeletePhotoMarker(ctx context.Context, photoID, markerID, parentID, parentKind, userID, role string) error {
+	result, err := r.pool.Exec(ctx, `DELETE FROM photo_markers pm WHERE pm.id=$1::uuid AND pm.photo_id=$2::uuid AND (($5='logbook' AND EXISTS (SELECT 1 FROM logbook_photos p WHERE p.id=pm.photo_id AND p.logbook_id=$3::uuid AND ($6='admin' OR p.uploaded_by=$4::uuid))) OR ($5='message' AND EXISTS (SELECT 1 FROM message_photos p WHERE p.id=pm.photo_id AND p.message_id=$3::uuid AND ($6='admin' OR p.uploaded_by=$4::uuid))))`, markerID, photoID, parentID, userID, parentKind, role)
+	if err != nil {
+		return mapError(err)
+	}
+	if result.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
 	tx, err := r.pool.Begin(ctx)

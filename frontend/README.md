@@ -68,6 +68,15 @@ Fokuskan foto lalu gunakan Shift + tombol panah untuk menggeser lewat keyboard.
 Tombol panah kiri/kanan tanpa Shift tetap membuka foto sebelumnya/berikutnya;
 Escape menutup penampil. Ukuran dan posisi kembali ke awal saat foto berganti.
 
+Tombol **Tandai foto** (lingkaran di sebelah rotasi) mengaktifkan marker titik merah.
+Klik atau ketuk beberapa posisi untuk menyimpannya di server. Marker mengikuti zoom,
+pan, rotasi, dan ukuran layar; muat ulang tetap menampilkan titik tersimpan.
+Pengunggah foto dan admin dapat menambah marker; pengguna lain hanya melihat.
+Saat mode marker aktif, panah menggerakkan kursor sesuai arah layar, termasuk setelah
+foto diputar; Enter menyimpan. Seret tetap menggeser foto tanpa menambah titik.
+Gagal simpan ditampilkan, bukan dianggap berhasil.
+
+
 Smoke Chromium memakai harness komponen bersama dengan dua gambar uji:
 desktop 1280×900 memperbesar hingga 200% dan menyeret 120×90 px; viewport
 mobile 390×844 menggeser lewat sentuhan dan mencubit dari 150% ke 300%, tanpa

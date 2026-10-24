@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -199,4 +200,59 @@ func (s *Logbooks) DeleteMessage(ctx context.Context, user domain.User, machineI
 		return invalid("invalid machine or message ID")
 	}
 	return s.repo.DeleteMessage(ctx, machineID, messageID, user.ID)
+}
+func (s *Logbooks) ValidateMarkerMessagePhoto(ctx context.Context, machineID int64, messageID, photoID string) error {
+	if machineID <= 0 || !validUUID(messageID) || !validUUID(photoID) {
+		return invalid("invalid photo reference")
+	}
+	_, err := s.repo.MessagePhoto(ctx, machineID, messageID, photoID)
+	return err
+}
+func (s *Logbooks) ListPhotoMarkers(ctx context.Context, photoID, parentID, parentKind string) ([]domain.PhotoMarker, error) {
+	if !validUUID(photoID) || !validUUID(parentID) || (parentKind != "message" && parentKind != "logbook") {
+		return nil, invalid("invalid photo reference")
+	}
+	return s.repo.ListPhotoMarkers(ctx, photoID, parentID, parentKind)
+}
+func (s *Logbooks) AddPhotoMarker(ctx context.Context, user domain.User, photoID, parentID, parentKind string, x, y float64) (domain.PhotoMarker, error) {
+	if !validUUID(user.ID) {
+		return domain.PhotoMarker{}, domain.ErrUnauthorized
+	}
+	if !validUUID(photoID) || !validUUID(parentID) || (parentKind != "message" && parentKind != "logbook") || math.IsNaN(x) || math.IsInf(x, 0) || math.IsNaN(y) || math.IsInf(y, 0) || x < 0 || x > 1 || y < 0 || y > 1 {
+		return domain.PhotoMarker{}, invalid("invalid photo reference or coordinates")
+	}
+	uploader, err := s.repo.PhotoMarkerAccess(ctx, photoID, parentID, parentKind)
+	if err != nil {
+		return domain.PhotoMarker{}, err
+	}
+	if user.Role != "admin" && user.ID != uploader {
+		return domain.PhotoMarker{}, domain.ErrForbidden
+	}
+	return s.repo.AddPhotoMarker(ctx, photoID, parentID, parentKind, domain.PhotoMarker{ID: uuid.NewString(), X: x, Y: y, CreatedBy: user.ID}, user.Role)
+}
+func (s *Logbooks) DeletePhotoMarker(ctx context.Context, user domain.User, photoID, markerID, parentID, parentKind string) error {
+	if !validUUID(user.ID) {
+		return domain.ErrUnauthorized
+	}
+	if !validUUID(photoID) || !validUUID(markerID) || !validUUID(parentID) || (parentKind != "message" && parentKind != "logbook") {
+		return invalid("invalid photo reference")
+	}
+	canEdit, err := s.PhotoMarkerCanEdit(ctx, user, photoID, parentID, parentKind)
+	if err != nil {
+		return err
+	}
+	if !canEdit {
+		return domain.ErrForbidden
+	}
+	return s.repo.DeletePhotoMarker(ctx, photoID, markerID, parentID, parentKind, user.ID, user.Role)
+}
+func (s *Logbooks) PhotoMarkerCanEdit(ctx context.Context, user domain.User, photoID, parentID, parentKind string) (bool, error) {
+	if !validUUID(user.ID) || !validUUID(photoID) || !validUUID(parentID) || (parentKind != "message" && parentKind != "logbook") {
+		return false, invalid("invalid photo reference")
+	}
+	uploader, err := s.repo.PhotoMarkerAccess(ctx, photoID, parentID, parentKind)
+	if err != nil {
+		return false, err
+	}
+	return user.Role == "admin" || user.ID == uploader, nil
 }

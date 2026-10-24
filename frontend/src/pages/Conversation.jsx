@@ -495,6 +495,7 @@ function MachineConversation({ machine }) {
           caption={activePhoto.messageText || null}
           counterText={`${activeIndex + 1} dari ${allPhotos.length}`}
           photoUrl={viewerPhoto.url}
+          markerPhotoUrl={activePhoto.url}
           loading={viewerPhoto.loading}
           error={viewerPhoto.error}
           onRetry={viewerPhoto.retry}

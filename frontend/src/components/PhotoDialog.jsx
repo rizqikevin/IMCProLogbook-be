@@ -6,28 +6,37 @@ import {
   Loading,
   SkeletonPhotoDialog,
 } from "./common";
+import { usePhotoMarkers } from "../hooks";
 
 const MAX_ZOOM = 4;
 
-function PhotoViewer({ photoUrl, title, onClose }) {
+function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const pointers = useRef(new Map());
   const viewRef = useRef({ scale: 1, x: 0, y: 0 });
   const [view, setView] = useState(viewRef.current);
   const [rotation, setRotation] = useState(0);
+  const [markerMode, setMarkerMode] = useState(false);
   const rotationRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const gesture = useRef(null);
+  const [markerCursor, setMarkerCursor] = useState({ x: 0.5, y: 0.5 });
 
   function updateView(next, nextRotation = rotationRef.current) {
     const stage = stageRef.current;
     const image = imageRef.current;
-    if (!stage || !image) return;
+    if (!stage || !image || !image.naturalWidth) return;
+    const fit = Math.min(1, stage.clientWidth / image.naturalWidth, stage.clientHeight / image.naturalHeight);
+    const width = image.naturalWidth * fit;
+    const height = image.naturalHeight * fit;
+    setImageSize({ width, height });
     const isTransposed = nextRotation % 180 !== 0;
-    const w = isTransposed ? image.offsetHeight : image.offsetWidth;
-    const h = isTransposed ? image.offsetWidth : image.offsetHeight;
+    const w = isTransposed ? height : width;
+    const h = isTransposed ? width : height;
     const scale = Math.min(MAX_ZOOM, Math.max(1, next.scale));
     const maxX = Math.max(0, (w * scale - stage.clientWidth) / 2);
     const maxY = Math.max(0, (h * scale - stage.clientHeight) / 2);
@@ -70,6 +79,11 @@ function PhotoViewer({ photoUrl, title, onClose }) {
     event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (pointers.current.size) {
+      if (gesture.current) gesture.current.moved = true;
+    } else {
+      gesture.current = { x: event.clientX, y: event.clientY, moved: false };
+    }
     pointers.current.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
@@ -81,6 +95,7 @@ function PhotoViewer({ photoUrl, title, onClose }) {
     const points = pointers.current;
     const previous = points.get(event.pointerId);
     if (!previous) return;
+    if (gesture.current && Math.hypot(event.clientX - gesture.current.x, event.clientY - gesture.current.y) > 5) gesture.current.moved = true;
     const current = { x: event.clientX, y: event.clientY };
     const other = [...points.entries()].find(
       ([id]) => id !== event.pointerId,
@@ -119,12 +134,26 @@ function PhotoViewer({ photoUrl, title, onClose }) {
   }
 
   function pointerEnd(event) {
+    if (event.type === "pointerup" && pointers.current.size === 1 && !gesture.current?.moved) toggleMarker(event);
     pointers.current.delete(event.pointerId);
     setDragging(pointers.current.size > 0);
   }
 
   function handleKeyDown(event) {
     if (!ready) return;
+    if (markerMode && onAddMarker && !event.shiftKey) {
+      const directions = { ArrowLeft: [-0.02, 0], ArrowRight: [0.02, 0], ArrowUp: [0, -0.02], ArrowDown: [0, 0.02] };
+      if (directions[event.key] || event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (directions[event.key]) {
+          const [dx, dy] = directions[event.key];
+          const delta = new DOMMatrixReadOnly().rotate(-rotationRef.current).transformPoint(new DOMPoint(dx, dy, 0, 0));
+          setMarkerCursor((point) => ({ x: Math.max(0, Math.min(1, point.x + delta.x)), y: Math.max(0, Math.min(1, point.y + delta.y)) }));
+        } else onAddMarker(markerCursor);
+        return;
+      }
+    }
     const steps = {
       ArrowLeft: [40, 0],
       ArrowRight: [-40, 0],
@@ -164,6 +193,16 @@ function PhotoViewer({ photoUrl, title, onClose }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [ready]);
+  function toggleMarker(event) {
+    if (!markerMode || !ready || !onAddMarker || event.target.closest("button")) return;
+    const image = imageRef.current;
+    const rect = image.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(image.parentElement).transform).inverse();
+    const point = matrix.transformPoint(new DOMPoint(event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2, 0, 0));
+    const marker = { x: point.x / imageSize.width + 0.5, y: point.y / imageSize.height + 0.5 };
+    if (marker.x >= 0 && marker.x <= 1 && marker.y >= 0 && marker.y <= 1) onAddMarker(marker);
+  }
   return (
     <>
       <div
@@ -179,37 +218,38 @@ function PhotoViewer({ photoUrl, title, onClose }) {
         onPointerCancel={pointerEnd}
         onLostPointerCapture={pointerEnd}
       >
-        <button
-          type="button"
-          className="photo-dialog-close"
-          aria-label="Tutup"
-          title="Tutup"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        >
+        <button type="button" className="photo-dialog-close" aria-label="Tutup foto" onPointerDown={(event) => event.stopPropagation()} onClick={onClose}>
           <Icon name="close" />
         </button>
-        <img
-          ref={imageRef}
-          src={photoUrl}
-          alt={title}
-          draggable={false}
+        <div
+          className="photo-dialog-image-layer"
           style={{
+            width: imageSize.width || undefined,
+            height: imageSize.height || undefined,
             transform: `translate(${view.x}px, ${view.y}px) rotate(${rotation}deg) scale(${view.scale})`,
             transition: dragging ? "none" : "transform 0.15s ease",
             visibility: ready ? "visible" : "hidden",
           }}
-          onLoad={() => {
-            setReady(true);
-            updateView(viewRef.current);
-          }}
-          onError={() => {
-            setFailed(true);
-            setReady(false);
-          }}
-        />
+        >
+          <img
+            ref={imageRef}
+            src={photoUrl}
+            alt={title}
+            draggable={false}
+            onLoad={() => {
+              setReady(true);
+              updateView(viewRef.current);
+            }}
+            onError={() => {
+              setFailed(true);
+              setReady(false);
+            }}
+          />
+          <div className="photo-dialog-markers" aria-hidden="true">
+            {markers.map((marker, index) => <span key={`${marker.x}:${marker.y}:${index}`} className="photo-dialog-marker" style={{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }} />)}
+            {markerMode && onAddMarker && <span className="photo-dialog-marker-cursor" style={{ left: `${markerCursor.x * 100}%`, top: `${markerCursor.y * 100}%` }} />}
+          </div>
+        </div>
         {!ready && (
           <div className="photo-dialog-image-status">
             {failed ? (
@@ -271,6 +311,18 @@ function PhotoViewer({ photoUrl, title, onClose }) {
         <span className="photo-dialog-tool-divider" aria-hidden="true" />
         <button
           type="button"
+          className={`photo-viewer-control${markerMode ? " is-active" : ""}`}
+          aria-label={markerMode ? "Nonaktifkan marker foto" : "Aktifkan marker foto"}
+          aria-pressed={markerMode}
+          title="Tandai foto"
+          disabled={!ready || !onAddMarker}
+          onClick={() => { setMarkerMode((active) => !active); stageRef.current?.focus(); }}
+        >
+          <Icon name="marker" />
+        </button>
+        <span className="photo-dialog-tool-divider" aria-hidden="true" />
+        <button
+          type="button"
           className="photo-viewer-control"
           aria-label={
             rotation
@@ -288,26 +340,17 @@ function PhotoViewer({ photoUrl, title, onClose }) {
         Cubit untuk zoom · Putar foto (R) · Geser saat diperbesar
         <span> · Shift + panah untuk menggeser</span>
       </p>
+      {markerMode && <p className="photo-dialog-marker-help">Klik atau ketuk foto untuk menambah titik. Panah mengatur posisi, Enter menyimpan. Geser untuk pan.</p>}
     </>
   );
 }
 
 export default function PhotoDialog({
-  title,
-  subtitle,
-  caption,
-  photoUrl,
-  loading = false,
-  error = null,
-  onRetry,
-  downloadName,
-  onPrev,
-  onNext,
-  hasPrev = false,
-  hasNext = false,
-  counterText,
-  onClose,
+  title, subtitle, caption, photoUrl, loading = false, error = null, onRetry,
+  downloadName, onPrev, onNext, hasPrev = false, hasNext = false, counterText,
+  onClose, markerPhotoUrl,
 }) {
+  const markerQuery = usePhotoMarkers(markerPhotoUrl);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const historyEntry = useRef(null);
@@ -388,8 +431,13 @@ export default function PhotoDialog({
           photoUrl={photoUrl}
           title={title}
           onClose={closeViewer}
+          markers={markerQuery.markers}
+          onAddMarker={markerQuery.canEdit && !markerQuery.saving ? markerQuery.add : undefined}
         />
       ) : null}
+      {markerQuery.loading && <Loading>Memuat marker…</Loading>}
+      {markerQuery.saving && <p role="status">Menyimpan marker…</p>}
+      <ErrorNotice error={markerQuery.error} onRetry={markerQuery.retry} />
       {caption && <p className="photo-dialog-caption">{caption}</p>}
       <div className="photo-dialog-nav">
         <div className="photo-dialog-pager">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryString, request, requestPhoto } from "./lib/api";
 import { queryKeys } from "./queryClient";
 
@@ -123,6 +123,32 @@ export function usePhotoUrl(url) {
     loading: enabled && query.isLoading,
     error: query.error ?? null,
     retry: () => query.refetch(),
+  };
+}
+export function usePhotoMarkers(photoUrl) {
+  const enabled = Boolean(photoUrl?.startsWith("/api/v1/"));
+  const endpoint = enabled ? `${photoUrl.slice("/api/v1".length)}/markers` : "";
+  const client = useQueryClient();
+  const queryKey = queryKeys.photoMarkers(photoUrl);
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => request(endpoint, { signal }),
+    enabled,
+  });
+  const mutation = useMutation({
+    mutationFn: (marker) => request(endpoint, { method: "POST", body: marker }),
+    onSuccess: (marker) => client.setQueryData(queryKey, (data) => ({
+      ...data, items: [...(data?.items ?? []), marker],
+    })),
+  });
+  return {
+    markers: query.data?.items ?? [],
+    canEdit: Boolean(query.data?.can_edit),
+    loading: enabled && query.isLoading,
+    saving: mutation.isPending,
+    error: query.error ?? mutation.error,
+    retry: () => { mutation.reset(); query.refetch(); },
+    add: mutation.mutate,
   };
 }
 

@@ -33,6 +33,10 @@ type Repository interface {
 	ListMessages(context.Context, domain.MessageFilter) ([]domain.Message, error)
 	MessagePhoto(context.Context, int64, string, string) (domain.Photo, error)
 	DeleteMessage(context.Context, int64, string, string) error
+	ListPhotoMarkers(context.Context, string, string, string) ([]domain.PhotoMarker, error)
+	AddPhotoMarker(context.Context, string, string, string, domain.PhotoMarker, string) (domain.PhotoMarker, error)
+	DeletePhotoMarker(context.Context, string, string, string, string, string, string) error
+	PhotoMarkerAccess(context.Context, string, string, string) (string, error)
 	ReserveUploads(context.Context, []string, time.Time) error
 	Create(context.Context, domain.Logbook) (domain.Logbook, error)
 	AppendPhotos(context.Context, string, []domain.Photo, int) (domain.Logbook, error)

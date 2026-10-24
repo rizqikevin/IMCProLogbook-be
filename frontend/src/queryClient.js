@@ -24,4 +24,5 @@ export const queryKeys = {
   ],
   photo: (bookId, photoId) => ["photos", String(bookId), String(photoId)],
   photoUrl: (url) => ["photos", "url", String(url)],
+  photoMarkers: (url) => ["photo-markers", String(url)],
 };

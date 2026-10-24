@@ -98,6 +98,86 @@ func (s *Server) messagePhoto(w http.ResponseWriter, r *http.Request) {
 	defer body.Close()
 	s.servePhoto(w, r, photo, body)
 }
+func (s *Server) validateMarkerPath(r *http.Request) error {
+	if r.PathValue("logbookID") != "" {
+		return nil
+	}
+	machineID, err := machinePathID(r)
+	if err != nil {
+		return err
+	}
+	return s.logbooks.ValidateMarkerMessagePhoto(r.Context(), machineID, r.PathValue("messageID"), r.PathValue("photoID"))
+}
+func (s *Server) listPhotoMarkers(w http.ResponseWriter, r *http.Request) {
+	if err := s.validateMarkerPath(r); err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	parentID, parentKind := r.PathValue("messageID"), "message"
+	if r.PathValue("logbookID") != "" {
+		parentID, parentKind = r.PathValue("logbookID"), "logbook"
+	}
+	markers, err := s.logbooks.ListPhotoMarkers(r.Context(), r.PathValue("photoID"), parentID, parentKind)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	canEdit, err := s.logbooks.PhotoMarkerCanEdit(r.Context(), currentUser(r), r.PathValue("photoID"), parentID, parentKind)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": markers, "can_edit": canEdit})
+}
+func (s *Server) addPhotoMarker(w http.ResponseWriter, r *http.Request) {
+	if err := s.validateMarkerPath(r); err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	var input struct {
+		X *float64 `json:"x"`
+		Y *float64 `json:"y"`
+	}
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&input); err != nil {
+		s.decodeError(w, r, err)
+		return
+	}
+	if dec.Decode(new(any)) != io.EOF {
+		s.failure(w, r, &domain.ValidationError{Message: "request must contain one JSON object"})
+		return
+	}
+	if input.X == nil || input.Y == nil {
+		s.failure(w, r, &domain.ValidationError{Message: "x and y are required"})
+		return
+	}
+	parentID, parentKind := r.PathValue("messageID"), "message"
+	if r.PathValue("logbookID") != "" {
+		parentID, parentKind = r.PathValue("logbookID"), "logbook"
+	}
+	marker, err := s.logbooks.AddPhotoMarker(r.Context(), currentUser(r), r.PathValue("photoID"), parentID, parentKind, *input.X, *input.Y)
+	if err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, marker)
+}
+func (s *Server) deletePhotoMarker(w http.ResponseWriter, r *http.Request) {
+	if err := s.validateMarkerPath(r); err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	parentID, parentKind := r.PathValue("messageID"), "message"
+	if r.PathValue("logbookID") != "" {
+		parentID, parentKind = r.PathValue("logbookID"), "logbook"
+	}
+	if err := s.logbooks.DeletePhotoMarker(r.Context(), currentUser(r), r.PathValue("photoID"), r.PathValue("markerID"), parentID, parentKind); err != nil {
+		s.failure(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
 func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	machineID, err := machinePathID(r)

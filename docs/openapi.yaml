@@ -789,6 +789,92 @@ paths:
           description: Kesalahan internal; tanpa body.
         '504':
           description: Waktu request habis; tanpa body.
+  /api/v1/logbooks/{logbookID}/photos/{photoID}/markers:
+    parameters:
+      - {name: logbookID, in: path, required: true, schema: {type: string}}
+      - {name: photoID, in: path, required: true, schema: {type: string}}
+    get:
+      summary: List markers for an authenticated reader
+      description: Returns items (id, x, y, created_by, created_at) and can_edit for the photo uploader or admin.
+      responses:
+        '200': {description: Marker list and mutation permission}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      summary: Add a marker as photo uploader or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [x, y]
+              properties:
+                x: {type: number, minimum: 0, maximum: 1}
+                y: {type: number, minimum: 0, maximum: 1}
+      responses:
+        '201': {description: Stored marker with generated id and timestamp}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may add markers}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/logbooks/{logbookID}/photos/{photoID}/markers/{markerID}:
+    parameters:
+      - {name: logbookID, in: path, required: true, schema: {type: string}}
+      - {name: photoID, in: path, required: true, schema: {type: string}}
+      - {name: markerID, in: path, required: true, schema: {type: string}}
+    delete:
+      summary: Delete a marker as photo uploader or admin
+      responses:
+        '204': {description: Marker deleted}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may delete markers}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/markers:
+    parameters:
+      - {name: machineID, in: path, required: true, schema: {type: integer}}
+      - {name: messageID, in: path, required: true, schema: {type: string}}
+      - {name: photoID, in: path, required: true, schema: {type: string}}
+    get:
+      summary: List markers for an authenticated reader
+      description: Returns items (id, x, y, created_by, created_at) and can_edit for the photo uploader or admin.
+      responses:
+        '200': {description: Marker list and mutation permission}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+    post:
+      summary: Add a marker as photo uploader or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [x, y]
+              properties:
+                x: {type: number, minimum: 0, maximum: 1}
+                y: {type: number, minimum: 0, maximum: 1}
+      responses:
+        '201': {description: Stored marker with generated id and timestamp}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may add markers}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/markers/{markerID}:
+    parameters:
+      - {name: machineID, in: path, required: true, schema: {type: integer}}
+      - {name: messageID, in: path, required: true, schema: {type: string}}
+      - {name: photoID, in: path, required: true, schema: {type: string}}
+      - {name: markerID, in: path, required: true, schema: {type: string}}
+    delete:
+      summary: Delete a marker as photo uploader or admin
+      responses:
+        '204': {description: Marker deleted}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may delete markers}
+        '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
     bearerAuth:

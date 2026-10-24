@@ -31,10 +31,7 @@ export default function MessagePhoto({ photo, onOpen }) {
     return () => observer.disconnect();
   }, [isVisible]);
 
-  const { url, loading, error, retry } = usePhotoUrl(
-    isVisible ? photo.url : null,
-  );
-
+  const { url, loading, error, retry } = usePhotoUrl(isVisible ? photo.url : null);
   return (
     <div ref={containerRef} className="message-photo">
       {error ? (
@@ -80,6 +77,7 @@ export default function MessagePhoto({ photo, onOpen }) {
           title={`Foto ${photo.page_number}`}
           photoUrl={url}
           counterText={`Foto ${photo.page_number}`}
+          markerPhotoUrl={photo.url}
           downloadName={`foto-${photo.id}.${photo.content_type?.split("/")[1] || "jpg"}`}
           onClose={() => setOpen(false)}
         />
