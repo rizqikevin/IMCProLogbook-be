@@ -51,7 +51,7 @@ func TestIntegrationMachineMessagesTextPhotosAndHistory(t *testing.T) {
 		response := app.request("POST", "/api/v1/machines/1/messages", login.AccessToken, form.FormDataContentType(), &body)
 		requireStatus(t, response, http.StatusCreated)
 		message := decodeBody[domain.Message](t, response)
-		if message.Text != tc.text || message.Author.ID != login.User.ID || message.Author.Name != login.User.Name || message.CreatedAt.IsZero() || message.Photos == nil || len(message.Photos) != len(tc.photos) || message.LegacyArchive != nil {
+		if message.Text != tc.text || message.Author.ID != login.User.ID || message.Author.Name != login.User.Username || message.CreatedAt.IsZero() || message.Photos == nil || len(message.Photos) != len(tc.photos) || message.LegacyArchive != nil {
 			t.Fatalf("wrong message: %+v", message)
 		}
 		for i, photo := range message.Photos {

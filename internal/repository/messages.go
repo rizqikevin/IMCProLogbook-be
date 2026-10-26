@@ -34,7 +34,7 @@ func (r *Repository) CreateMessage(ctx context.Context, message domain.Message) 
 	if err != nil {
 		return domain.Message{}, mapError(err)
 	}
-	if err := tx.QueryRow(ctx, `SELECT name FROM users WHERE id = $1::uuid`, message.Author.ID).Scan(&message.Author.Name); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT username FROM users WHERE id = $1::uuid`, message.Author.ID).Scan(&message.Author.Name); err != nil {
 		return domain.Message{}, mapError(err)
 	}
 	keys := make([]string, len(message.Photos))
@@ -78,7 +78,7 @@ func (r *Repository) ListMessages(ctx context.Context, filter domain.MessageFilt
 	if filter.Cursor != nil {
 		cursorTime, cursorID = filter.Cursor.CreatedAt, filter.Cursor.ID
 	}
-	rows, err := tx.Query(ctx, `SELECT t.id::text, t.machine_id, t.text, t.created_by::text, u.name, t.created_at, t.edited_at,
+	rows, err := tx.Query(ctx, `SELECT t.id::text, t.machine_id, t.text, t.created_by::text, u.username, t.created_at, t.edited_at,
 		COALESCE(b.id::text, ''), COALESCE(to_char(b.log_date, 'YYYY-MM-DD'), ''), COALESCE(s.id, 0), COALESCE(s.name, '')
 		FROM machine_messages t JOIN users u ON u.id = t.created_by
 		LEFT JOIN logbooks b ON b.id = t.legacy_archive_id LEFT JOIN shifts s ON s.id = b.shift_id
@@ -183,7 +183,7 @@ func (r *Repository) EditMessage(ctx context.Context, machineID int64, messageID
 	}
 	defer tx.Rollback(ctx)
 	var message domain.Message
-	err = tx.QueryRow(ctx, `SELECT m.id::text, m.machine_id, m.text, m.created_by::text, u.name, m.created_at, m.edited_at
+	err = tx.QueryRow(ctx, `SELECT m.id::text, m.machine_id, m.text, m.created_by::text, u.username, m.created_at, m.edited_at
 		FROM messages m JOIN machines machine ON machine.id = m.machine_id JOIN users u ON u.id = m.created_by
 		WHERE m.id = $1::uuid AND m.machine_id = $2 AND machine.active FOR UPDATE OF m`, messageID, machineID).
 		Scan(&message.ID, &message.MachineID, &message.Text, &message.Author.ID, &message.Author.Name, &message.CreatedAt, &message.EditedAt)

@@ -45,10 +45,7 @@ export default function Layout() {
           </nav>
           <div className="account">
             <div className="account-name">
-              <strong>{user.name}</strong>
-              <span>
-                {user.role === "admin" ? "Administrator" : "Operator"}
-              </span>
+              <strong>{user.username}</strong>
             </div>
             <ThemeToggle />
               <button

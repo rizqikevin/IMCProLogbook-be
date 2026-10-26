@@ -41,7 +41,7 @@ func TestIntegrationEditMessagePreservesHistoryAndRejectsEmptyText(t *testing.T)
 		t.Fatalf("rejected edits persisted: %+v %v", items, err)
 	}
 	edited, err := repo.EditMessage(ctx, 1, message.ID, user.ID, "updated")
-	if err != nil || edited.EditedAt == nil || !edited.EditedAt.After(stamp) || !edited.CreatedAt.Equal(stamp) || edited.Photos == nil || edited.Author.Name != user.Name {
+	if err != nil || edited.EditedAt == nil || !edited.EditedAt.After(stamp) || !edited.CreatedAt.Equal(stamp) || edited.Photos == nil || edited.Author.Name != user.Username {
 		t.Fatalf("old message edit: %+v %v", edited, err)
 	}
 	unchanged, err = repo.EditMessage(ctx, 1, message.ID, user.ID, "updated")
@@ -68,7 +68,7 @@ func TestIntegrationMessagesPreserveArchivesAndPageByStableKey(t *testing.T) {
 		t.Fatalf("legacy=%+v err=%v", legacy, err)
 	}
 	item := legacy[0]
-	if item.ID != book.ID || item.Text != "" || item.Author.ID != user.ID || item.Author.Name != user.Name || !item.CreatedAt.Equal(book.CreatedAt) || item.LegacyArchive == nil || item.LegacyArchive.LogDate != book.LogDate || item.LegacyArchive.Shift != book.Shift || len(item.Photos) != 1 || item.Photos[0].StorageKey != photo.StorageKey || item.Photos[0].ID != photo.ID {
+	if item.ID != book.ID || item.Text != "" || item.Author.ID != user.ID || item.Author.Name != user.Username || !item.CreatedAt.Equal(book.CreatedAt) || item.LegacyArchive == nil || item.LegacyArchive.LogDate != book.LogDate || item.LegacyArchive.Shift != book.Shift || len(item.Photos) != 1 || item.Photos[0].StorageKey != photo.StorageKey || item.Photos[0].ID != photo.ID {
 		t.Fatalf("archive changed: %+v", item)
 	}
 	if _, err := repo.Get(ctx, book.ID); err != nil {
@@ -81,7 +81,7 @@ func TestIntegrationMessagesPreserveArchivesAndPageByStableKey(t *testing.T) {
 	ids := []string{"00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000003"}
 	for _, id := range ids {
 		message, err := repo.CreateMessage(ctx, domain.Message{ID: id, MachineID: 1, Text: "note", Author: domain.MessageAuthor{ID: user.ID, Name: "untrusted name"}, Photos: []domain.Photo{}})
-		if err != nil || message.Author.Name != user.Name || message.CreatedAt.IsZero() {
+		if err != nil || message.Author.Name != user.Username || message.CreatedAt.IsZero() {
 			t.Fatalf("created=%+v err=%v", message, err)
 		}
 		if _, err := pool.Exec(ctx, `UPDATE messages SET created_at = $1 WHERE id = $2`, stamp, id); err != nil {
@@ -245,7 +245,7 @@ func TestIntegrationMessageMigrationPreservesExistingArchive(t *testing.T) {
 		t.Fatalf("migrated page=%+v err=%v", page, err)
 	}
 	message := page[0]
-	if message.Text != "" || message.Author.ID != book.CreatedBy || message.Author.Name != user.Name || !message.CreatedAt.Equal(book.CreatedAt) || message.LegacyArchive == nil || message.LegacyArchive.ID != book.ID || message.LegacyArchive.LogDate != book.LogDate || message.LegacyArchive.Shift != book.Shift || len(message.Photos) != 1 || message.Photos[0].ID != book.Photos[0].ID || message.Photos[0].PageNumber != book.Photos[0].PageNumber || message.Photos[0].ContentType != book.Photos[0].ContentType || message.Photos[0].Size != book.Photos[0].Size || message.Photos[0].StorageKey != book.Photos[0].StorageKey || message.Photos[0].SHA256 != book.Photos[0].SHA256 || message.Photos[0].UploadedBy != book.Photos[0].UploadedBy || !message.Photos[0].CreatedAt.Equal(book.Photos[0].CreatedAt) {
+	if message.Text != "" || message.Author.ID != book.CreatedBy || message.Author.Name != user.Username || !message.CreatedAt.Equal(book.CreatedAt) || message.LegacyArchive == nil || message.LegacyArchive.ID != book.ID || message.LegacyArchive.LogDate != book.LogDate || message.LegacyArchive.Shift != book.Shift || len(message.Photos) != 1 || message.Photos[0].ID != book.Photos[0].ID || message.Photos[0].PageNumber != book.Photos[0].PageNumber || message.Photos[0].ContentType != book.Photos[0].ContentType || message.Photos[0].Size != book.Photos[0].Size || message.Photos[0].StorageKey != book.Photos[0].StorageKey || message.Photos[0].SHA256 != book.Photos[0].SHA256 || message.Photos[0].UploadedBy != book.Photos[0].UploadedBy || !message.Photos[0].CreatedAt.Equal(book.Photos[0].CreatedAt) {
 		t.Fatalf("migration changed historical content: %+v", message)
 	}
 	if _, err := repo.Photo(ctx, book.ID, photo.ID); err != nil {

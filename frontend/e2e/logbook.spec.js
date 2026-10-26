@@ -133,7 +133,7 @@ test("machine conversation persists exact text, photos, both, and historical arc
   const text = await send(page);
   expect(text.text).toBe(body);
   expect(text.photos).toEqual([]);
-  expect(text.author.name).toBe("Pengujian operator");
+  expect(text.author.name).toBe("operator");
   await expect(page.locator(".message-text").filter({ hasText: testInfo.project.name }).last()).toHaveJSProperty("textContent", body);
   await expect(page.locator(".message-entry.message-own").filter({ hasText: testInfo.project.name }).last()).toBeVisible();
   expect(await page.evaluate(() => window.bad)).toBeUndefined();
@@ -224,7 +224,7 @@ test("failed submission retains machine-scoped text and attachments", async ({ p
 
 test("loading, empty, failure retry and older pagination preserve ascending order", async ({ page }) => {
   await login(page);
-  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "test-author", name: "Pengujian operator" }, created_at: `2026-01-0${id}T00:00:00Z`, photos: [] });
+  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "test-author", name: "operator.test" }, created_at: `2026-01-0${id}T00:00:00Z`, photos: [] });
   let fail = true;
   let release;
   const pending = new Promise((resolve) => { release = resolve; });
@@ -483,7 +483,7 @@ test("long chat scrolls its timeline while header and composer stay in viewport"
     id: String(index + 1),
     machine_id: 1,
     text: `Catatan ${index + 1}\nPemeriksaan mesin\nHasil pemeriksaan tercatat`,
-    author: { id: "other-operator", name: "Operator lain" },
+    author: { id: "other-operator", name: "operator.lain" },
     created_at: `2026-01-${index < 20 ? "01" : "02"}T08:${String(index % 20).padStart(2, "0")}:00Z`,
     photos: [],
   }));
@@ -591,7 +591,7 @@ test("search finds full machine history, paginates matches and survives navigati
 
 test("search cancels stale pages and retries failures without losing the query", async ({ page }) => {
   await login(page);
-  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "search-author", name: "Pengujian operator" }, created_at: "2026-01-01T00:00:00Z", photos: [] });
+  const message = (id, text) => ({ id, machine_id: 1, text, author: { id: "search-author", name: "operator.test" }, created_at: "2026-01-01T00:00:00Z", photos: [] });
   let releaseInitial;
   let releaseOlder;
   let olderStarted;
@@ -751,7 +751,7 @@ test("edit action is restricted to owned native messages", async ({ page }) => {
   const own = await send(page);
   const items = [
     own,
-    { ...own, id: "other-message", text: "Pesan operator lain", author: { id: "other-author", name: "Operator lain" } },
+    { ...own, id: "other-message", text: "Pesan operator lain", author: { id: "other-author", name: "operator.lain" } },
     { ...own, id: "legacy-message", text: "Arsip milik sendiri", legacy_archive: { id: "legacy", log_date: "2026-01-01", shift: { name: "Pagi" } } },
   ];
   await page.route("**/api/v1/machines/1/messages?*", (route) => route.fulfill({ json: { items } }));

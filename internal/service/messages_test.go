@@ -141,7 +141,7 @@ func TestCreateMessageAcceptsTextPhotosOrBoth(t *testing.T) {
 				},
 			}, createMessage: func(_ context.Context, message domain.Message) (domain.Message, error) {
 				events = append(events, "publish")
-				if message.Text != text || message.MachineID != 2 || message.Author.ID != testUserID || message.Author.Name != "Operator" || message.CreatedAt.IsZero() || !validUUID(message.ID) || message.LegacyArchive != nil {
+				if message.Text != text || message.MachineID != 2 || message.Author.ID != testUserID || message.Author.Name != "kevin" || message.CreatedAt.IsZero() || !validUUID(message.ID) || message.LegacyArchive != nil {
 					t.Fatalf("incorrect message: %+v", message)
 				}
 				return message, nil
@@ -153,7 +153,7 @@ func TestCreateMessageAcceptsTextPhotosOrBoth(t *testing.T) {
 				events = append(events, "put")
 				return nil
 			}}
-			message, err := testLogbooks(repo, store).CreateMessage(context.Background(), domain.User{ID: testUserID, Name: "Operator"}, 2, text, uploads)
+			message, err := testLogbooks(repo, store).CreateMessage(context.Background(), domain.User{ID: testUserID, Username: "kevin", Name: "Operator", Role: "operator"}, 2, text, uploads)
 			if err != nil || message.Photos == nil || len(message.Photos) != len(uploads) {
 				t.Fatalf("message=%+v err=%v", message, err)
 			}

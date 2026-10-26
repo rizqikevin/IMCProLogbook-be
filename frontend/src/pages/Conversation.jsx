@@ -350,7 +350,7 @@ function MachineConversation({ machine }) {
               return <li key={message.id}>
                 {(!previous || dayFormat.format(new Date(previous.created_at)) !== date) && <div className="message-date"><span>{date}</span></div>}
                 <article className={`message-entry${own ? " message-own" : ""}`} aria-label={`Pesan ${message.author.name}, ${formatTime(message.created_at)}`}>
-                  <header className="message-meta"><strong>{own ? "Anda" : message.author.name}</strong></header>
+                  <header className="message-meta"><strong>{message.author.name}</strong></header>
                   {message.legacy_archive && <div className="legacy-message"><span>Arsip foto · {formatDate(message.legacy_archive.log_date)} · {message.legacy_archive.shift.name}</span><Link to={`/logbooks/${message.legacy_archive.id}`}>Buka arsip lama</Link></div>}
                   {message.text !== "" && <p className="message-text">{message.text}</p>}
                   {message.photos.length > 0 && <div className="message-photos">{message.photos.map((photo) => <MessagePhoto key={photo.id} photo={photo} onOpen={() => setActivePhotoId(photo.id)} />)}</div>}

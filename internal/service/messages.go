@@ -42,7 +42,7 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 		return domain.Message{}, err
 	}
 	message := domain.Message{ID: uuid.NewString(), MachineID: machineID, Text: text,
-		Author: domain.MessageAuthor{ID: user.ID, Name: user.Name}, CreatedAt: time.Now().UTC()}
+		Author: domain.MessageAuthor{ID: user.ID, Name: user.Username}, CreatedAt: time.Now().UTC()}
 	photos, err := s.preparePhotos(ctx, message.ID, user.ID, uploads)
 	if err != nil {
 		return domain.Message{}, err

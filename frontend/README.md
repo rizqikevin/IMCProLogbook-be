@@ -33,7 +33,7 @@ Password diminta secara interaktif. Gunakan `--role admin` untuk administrator.
 1. Login dengan akun operator atau admin.
 2. Pilih mesin untuk membuka satu riwayat percakapan yang berkelanjutan.
 3. Ketik atau tempel catatan multiline, pilih foto, atau gunakan keduanya.
-4. Tekan **Kirim pesan**. Nama pengirim dan waktu ditentukan server; tanggal dan shift tidak diperlukan.
+4. Tekan **Kirim pesan**. Username pengirim dan waktu ditentukan server; tanggal dan shift tidak diperlukan. Header akun, nama pengirim (termasuk pesan sendiri dan arsip lama), serta dialog edit menampilkan username, bukan nama lengkap atau role. Role tetap menentukan hak akses. API mengirim username pengirim melalui `author.name`.
 5. Gunakan **Muat pesan sebelumnya** untuk membaca pesan lama. Pesan tampil dari lama ke baru.
 6. **Pilih mesin lain** kembali ke daftar mesin. Draft teks dan foto masing-masing mesin tetap ada selama tab dan sesi yang sama.
 7. Tekan **Cari pesan**, isi teks, lalu tekan **Cari** atau Enter. Pencarian mencakup seluruh riwayat teks mesin ini, bukan hanya pesan yang sudah dimuat. **Muat hasil sebelumnya** membuka kecocokan yang lebih lama.
