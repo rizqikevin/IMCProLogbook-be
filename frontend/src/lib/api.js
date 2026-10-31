@@ -1,6 +1,7 @@
 const base = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const sessionKey = "machine-logbook-session";
 let memorySession = null;
+let socketRequestSequence = 0;
 
 export function readSession() {
   try {
@@ -127,5 +128,66 @@ export function requestPhoto(url, signal) {
   if (target.origin !== api.origin || !target.pathname.startsWith("/api/v1/"))
     throw new ApiError("Alamat foto tidak valid.");
   return request(`${target.pathname.slice(7)}${target.search}`, { blob: true, signal });
+}
+
+export function connectMessages(machineId, onEvent, onStatus) {
+  const url = new URL(`${base}/api/v1/machines/${encodeURIComponent(machineId)}/messages/ws`, window.location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  let socket, retry, stopped = false, ready = false;
+  const pending = new Map();
+  const uncertain = () => new ApiError("Koneksi terputus. Status kiriman belum pasti. Periksa riwayat sebelum mengirim ulang.");
+  function open() {
+    onStatus("connecting");
+    const token = readSession()?.access_token;
+    socket = new WebSocket(url);
+    const current = socket;
+    const deadline = setTimeout(() => current.close(), 10000);
+    current.onopen = () => current.send(JSON.stringify({ type: "auth", token }));
+    current.onmessage = ({ data }) => {
+      let event;
+      try { event = JSON.parse(data); } catch { current.close(); return; }
+      if (event.type === "ready") {
+        clearTimeout(deadline);
+        ready = true;
+        onStatus("connected");
+        onEvent(event);
+      } else if (event.type === "ack" || event.type === "error") {
+        const waiting = pending.get(event.request_id);
+        if (!waiting) return;
+        clearTimeout(waiting.timer);
+        pending.delete(event.request_id);
+        if (event.type === "ack") waiting.resolve(event.message);
+        else waiting.reject(responseError(400, event));
+      } else if (ready) onEvent(event);
+    };
+    current.onerror = () => current.close();
+    current.onclose = (event) => {
+      clearTimeout(deadline);
+      ready = false;
+      for (const waiting of pending.values()) {
+        clearTimeout(waiting.timer);
+        waiting.reject(uncertain());
+      }
+      pending.clear();
+      if (stopped) return;
+      onStatus("disconnected");
+      if (event.code === 1008 && event.reason === "unauthorized") { expireSession(token); return; }
+      retry = setTimeout(open, 3000);
+    };
+  }
+  open();
+  return {
+    send(text) {
+      if (!ready || socket.readyState !== WebSocket.OPEN) return Promise.reject(new ApiError("Koneksi realtime belum siap. Tunggu sampai tersambung."));
+      const requestId = String(++socketRequestSequence);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { pending.delete(requestId); reject(uncertain()); socket.close(); }, 30000);
+        pending.set(requestId, { resolve, reject, timer });
+        try { socket.send(JSON.stringify({ type: "send", request_id: requestId, text })); }
+        catch { clearTimeout(timer); pending.delete(requestId); reject(uncertain()); socket.close(); }
+      });
+    },
+    close() { stopped = true; clearTimeout(retry); socket.close(); },
+  };
 }
 

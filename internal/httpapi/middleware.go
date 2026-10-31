@@ -104,7 +104,7 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 				if !sameOrigin {
 					out.Header().Add("Vary", "Access-Control-Request-Method")
 					out.Header().Add("Vary", "Access-Control-Request-Headers")
-					out.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, DELETE, OPTIONS")
+					out.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS")
 					out.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 					out.Header().Set("Access-Control-Max-Age", "600")
 				}

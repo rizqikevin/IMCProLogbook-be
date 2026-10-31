@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import { useMachines, usePhotoUrl } from "../hooks";
+import { useMachines, useMessageSocket, usePhotoUrl } from "../hooks";
 import { request, queryString } from "../lib/api";
 import { formatDate, formatTime, validateSelection } from "../lib/format";
 import { flattenPhotos, mergeMessages, messageForm, normalizeMessageText, textLimit, validateMessage } from "../lib/messages";
@@ -15,6 +15,7 @@ import { ThemeToggle } from "../theme";
 
 const dayFormat = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
 const clockFormat = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" });
+const messageOrder = (a, b) => a.created_at.localeCompare(b.created_at) || String(a.id).localeCompare(String(b.id));
 
 export default function Conversation() {
   const { machineId } = useParams();
@@ -74,6 +75,30 @@ function MachineConversation({ machine }) {
   const posting = useRef(false);
   const seenSent = useRef(null);
   const endpoint = `/machines/${machineId}/messages`;
+  const liveMessages = useRef(new Map());
+  const realtime = useMessageSocket(machineId, (event) => {
+    if (event.type === "ready") {
+      editedMessages.current.clear();
+      liveMessages.current.clear();
+      setAttempt((value) => value + 1);
+      return;
+    }
+    if (event.type === "deleted") {
+      deleted.current.add(String(event.message_id));
+      liveMessages.current.delete(String(event.message_id));
+      setState((old) => ({ ...old, items: old.items.filter((item) => String(item.id) !== String(event.message_id)) }));
+    } else if (event.message) {
+      const message = event.message;
+      liveMessages.current.set(String(message.id), message);
+      editedMessages.current.set(String(message.id), message);
+      if (!activeQuery.current) {
+        const view = timeline.current;
+        if (view && view.scrollHeight - view.scrollTop - view.clientHeight < 120) scroll.current = { bottom: true };
+        setState((old) => ({ ...old, items: mergeMessages(old.items, [message]).sort(messageOrder) }));
+      }
+    }
+    if (activeQuery.current) setAttempt((value) => value + 1);
+  });
 
   useEffect(() => {
     mounted.current = true;
@@ -233,7 +258,8 @@ function MachineConversation({ machine }) {
       .then((page) => {
         if (controller.signal.aborted || activeQuery.current !== query) return;
         scroll.current = { bottom: true };
-        setState({ items: page.items.filter((message) => !deleted.current.has(String(message.id))).map((message) => editedMessages.current.get(String(message.id)) || message), cursor: page.next_cursor || "", loading: false, error: null });
+        const incoming = query ? page.items : mergeMessages(page.items, [...liveMessages.current.values()]).sort(messageOrder);
+        setState({ items: incoming.filter((message) => !deleted.current.has(String(message.id))).map((message) => editedMessages.current.get(String(message.id)) || message), cursor: page.next_cursor || "", loading: false, error: null });
       })
       .catch((error) => {
         if (!controller.signal.aborted && activeQuery.current === query && error.name !== "AbortError") setState({ items: [], cursor: "", loading: false, error });
@@ -298,7 +324,9 @@ function MachineConversation({ machine }) {
     posting.current = true;
     update(machineId, { sending: true, error: null, sent: null });
     try {
-      const message = await request(endpoint, { method: "POST", body: messageForm(draft.text, draft.photos) });
+      const message = draft.photos.length
+        ? await request(endpoint, { method: "POST", body: messageForm(draft.text, draft.photos) })
+        : await realtime.send(normalizeMessageText(draft.text));
       draft.photos.forEach(release);
       update(machineId, { text: "", photos: [], sending: false, error: null, sent: message });
       setSelectionError("");
@@ -325,6 +353,7 @@ function MachineConversation({ machine }) {
           <ThemeToggle />
         </div>
       </header>
+      {realtime.status !== "connected" && <p className="conversation-search-status" role="status">{realtime.status === "connecting" ? "Menyambungkan realtime…" : "Koneksi realtime terputus. Menyambungkan kembali…"}</p>}
       {searchOpen && <form id="conversation-search" className="conversation-search" role="search" aria-label="Cari pesan mesin" onSubmit={commitSearch} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); clearSearch(true); } }}>
         <label htmlFor="message-search">Cari teks di mesin ini</label>
         <div className="conversation-search-row">

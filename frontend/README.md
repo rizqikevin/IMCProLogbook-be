@@ -1,6 +1,6 @@
 # Machine Logbook Archive · React
 
-Frontend React (JavaScript) + Vite, tersambung langsung ke REST API Go.
+Frontend React (JavaScript) + Vite, tersambung ke API Go melalui HTTP dan WebSocket.
 
 ## Jalankan lokal
 
@@ -19,6 +19,52 @@ salin `.env.example` menjadi `.env.local` lalu ubah `API_PROXY_TARGET`.
 Untuk akses lintas domain, set `VITE_API_BASE_URL` ke origin backend dan tambahkan
 origin frontend pada `CORS_ALLOWED_ORIGINS` backend. Nilai `VITE_*` menjadi bagian
 bundle publik, sehingga tidak boleh berisi password atau secret.
+
+Percakapan membuka `/api/v1/machines/{machineID}/messages/ws` (`ws` saat HTTP,
+`wss` saat HTTPS). Vite meneruskan upgrade WebSocket; server frontend Go memakai
+`httputil.ReverseProxy`, yang mendukung upgrade tanpa konfigurasi tambahan.
+Reverse proxy eksternal harus meneruskan header `Upgrade`/`Connection` dan memakai
+idle timeout lebih dari 35 detik. Origin mengikuti `CORS_ALLOWED_ORIGINS` atau origin
+yang sama. Token tidak pernah dimasukkan ke URL.
+
+Frame pertama wajib `{"type":"auth","token":"<access_token>"}` dalam 5 detik.
+Setelah `{"type":"ready"}`, klien dapat mengirim
+`{"type":"send","request_id":"<unique-id>","text":"catatan"}`.
+Server mengembalikan `ack` dengan `request_id` dan `message`, atau `error` dengan
+`request_id` serta objek `error.code`/`error.message`. Server menentukan pengirim,
+mesin, ID, dan waktu; validasi teks sama dengan HTTP. Sesi diperiksa sebelum
+kiriman/event dan saat heartbeat. Socket ditutup saat server berhenti.
+
+Event `created`/`updated` membawa `machine_id`, `message_id`, dan `message`;
+`deleted` membawa `machine_id` dan `message_id`. Event hanya dikirim ke socket
+terautentikasi pada mesin yang sama. Foto tetap memakai multipart HTTP; pembuatan
+pesan foto, edit, dan hapus HTTP juga menghasilkan event setelah tersimpan.
+Riwayat, pagination, dan pencarian tetap HTTP. Saat koneksi pulih, riwayat dimuat
+ulang untuk mengambil perubahan yang terlewat. Socket lambat ditutup jika antrean
+64 event penuh. Heartbeat berjalan setiap 25 detik.
+
+Kiriman teks tidak otomatis diulang jika koneksi atau acknowledgement hilang.
+Draft tetap tersedia dan aplikasi meminta pengguna memeriksa riwayat sebelum
+mengirim ulang, karena pesan mungkin sudah tersimpan. `request_id` menghubungkan
+respons, bukan kunci idempotensi. Status koneksi ditampilkan pada percakapan.
+
+Broadcast saat ini hanya dalam satu proses API. Jalankan satu instance API;
+deployment beberapa replica memerlukan pub/sub bersama agar event lintas replica
+tidak hilang. Persistensi pesan tetap PostgreSQL.
+
+Regresi socket tanpa database: `go test -race ./internal/httpapi -run TestMessageSocketAuthIsolationAndSend -count=1`
+dari root. Tes memakai koneksi WebSocket nyata melalui `httptest`, memeriksa auth,
+origin, kirim/persistensi, broadcast ke peer, dan isolasi mesin.
+
+Smoke browser dengan PostgreSQL uji: set `TEST_DATABASE_URL`, jalankan
+`go run ./frontend/e2e/backend` dari root, lalu dari `frontend` jalankan
+`API_PROXY_TARGET=http://127.0.0.1:18081 npm run dev`. Harness membuat schema dan
+storage sementara serta menghapusnya saat dihentikan. Login dua tab sebagai
+`operator` dan `admin`, password `frontend-test-only-123`. Buka mesin sama, kirim
+teks, edit/hapus sebagai pengirim, dan kirim foto: tab lain harus berubah tanpa
+reload. Tab mesin berbeda tidak boleh menerima pesan. Putuskan jaringan lalu
+sambungkan: status harus berubah, riwayat pulih, draft gagal tidak dikirim ulang.
+
 
 Jika perlu membuat akun, jalankan dari direktori backend:
 

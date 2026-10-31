@@ -121,7 +121,7 @@ func run(logger *slog.Logger) error {
 	repo := repository.New(pool)
 	books := service.NewLogbooks(repo, store, service.Limits{MaxPhotosPerUpload: cfg.MaxPhotosPerUpload, MaxPhotosPerLogbook: cfg.MaxPhotosPerLogbook, MaxPhotoBytes: cfg.MaxPhotoBytes, MaxImagePixels: cfg.MaxImagePixels}, logger)
 	auth := service.NewAuth(repo, cfg.SessionTTL)
-	handler := httpapi.New(books, auth, httpapi.Options{Logger: logger, AllowedOrigins: cfg.AllowedOrigins, MaxRequestBytes: cfg.MaxRequestBytes, MaxConcurrentUploads: cfg.MaxConcurrentUploads, RequestTimeout: cfg.RequestTimeout, Ready: func(ctx context.Context) error {
+	handler := httpapi.New(books, auth, httpapi.Options{SocketContext: ctx, Logger: logger, AllowedOrigins: cfg.AllowedOrigins, MaxRequestBytes: cfg.MaxRequestBytes, MaxConcurrentUploads: cfg.MaxConcurrentUploads, RequestTimeout: cfg.RequestTimeout, Ready: func(ctx context.Context) error {
 		if err := pool.Ping(ctx); err != nil {
 			return err
 		}

@@ -60,7 +60,9 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 	if err != nil {
 		return domain.Message{}, fmt.Errorf("create message: %w", err)
 	}
-	return withMessagePhotoURLs(created), nil
+	created = withMessagePhotoURLs(created)
+	s.publishMessage(MessageEvent{Type: "created", MachineID: machineID, MessageID: created.ID, Message: &created})
+	return created, nil
 }
 
 func validateMessageText(text string) error {
@@ -85,7 +87,9 @@ func (s *Logbooks) EditMessage(ctx context.Context, user domain.User, machineID 
 	if err != nil {
 		return domain.Message{}, err
 	}
-	return withMessagePhotoURLs(message), nil
+	message = withMessagePhotoURLs(message)
+	s.publishMessage(MessageEvent{Type: "updated", MachineID: machineID, MessageID: message.ID, Message: &message})
+	return message, nil
 }
 
 func ParseMessageCursor(raw string) (*domain.MessageCursor, error) {
@@ -199,7 +203,11 @@ func (s *Logbooks) DeleteMessage(ctx context.Context, user domain.User, machineI
 	if machineID <= 0 || !validUUID(messageID) {
 		return invalid("invalid machine or message ID")
 	}
-	return s.repo.DeleteMessage(ctx, machineID, messageID, user.ID)
+	if err := s.repo.DeleteMessage(ctx, machineID, messageID, user.ID); err != nil {
+		return err
+	}
+	s.publishMessage(MessageEvent{Type: "deleted", MachineID: machineID, MessageID: messageID})
+	return nil
 }
 func (s *Logbooks) ValidateMarkerMessagePhoto(ctx context.Context, machineID int64, messageID, photoID string) error {
 	if machineID <= 0 || !validUUID(messageID) || !validUUID(photoID) {

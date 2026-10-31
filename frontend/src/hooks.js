@@ -1,7 +1,20 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryString, request, requestPhoto } from "./lib/api";
+import { connectMessages, queryString, request, requestPhoto } from "./lib/api";
 import { queryKeys } from "./queryClient";
+
+export function useMessageSocket(machineId, onEvent) {
+  const callback = useRef(onEvent);
+  callback.current = onEvent;
+  const connection = useRef(null);
+  const [status, setStatus] = useState("connecting");
+  useEffect(() => {
+    const client = connectMessages(machineId, (event) => callback.current(event), setStatus);
+    connection.current = client;
+    return () => { connection.current = null; client.close(); };
+  }, [machineId]);
+  return { status, send: (text) => connection.current.send(text) };
+}
 
 export function useMachines() {
   const query = useQuery({

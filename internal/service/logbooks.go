@@ -14,6 +14,7 @@ import (
 	_ "image/png"
 	"io"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,10 +62,12 @@ type Upload struct {
 }
 
 type Logbooks struct {
-	repo   Repository
-	store  storage.Store
-	limits Limits
-	logger *slog.Logger
+	repo               Repository
+	store              storage.Store
+	limits             Limits
+	logger             *slog.Logger
+	messageMu          sync.Mutex
+	messageSubscribers map[chan MessageEvent]int64
 }
 
 func NewLogbooks(repo Repository, store storage.Store, limits Limits, logger *slog.Logger) *Logbooks {

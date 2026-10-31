@@ -24,6 +24,7 @@ type Options struct {
 	MaxConcurrentUploads int
 	RequestTimeout       time.Duration
 	Ready                func(context.Context) error
+	SocketContext        context.Context
 }
 
 type Server struct {
@@ -61,6 +62,7 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("GET /api/v1/machines", s.authenticated(http.HandlerFunc(s.machines)))
 	mux.Handle("GET /api/v1/shifts", s.authenticated(http.HandlerFunc(s.shifts)))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages", s.authenticated(http.HandlerFunc(s.listMessages)))
+	mux.HandleFunc("GET /api/v1/machines/{machineID}/messages/ws", s.messageSocket)
 	mux.Handle("POST /api/v1/machines/{machineID}/messages", s.authenticated(s.upload(http.HandlerFunc(s.createMessage))))
 	mux.Handle("PATCH /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.editMessage)))
 	mux.Handle("DELETE /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.deleteMessage)))
