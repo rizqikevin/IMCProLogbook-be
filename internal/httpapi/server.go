@@ -25,6 +25,8 @@ type Options struct {
 	RequestTimeout       time.Duration
 	Ready                func(context.Context) error
 	SocketContext        context.Context
+	Push                 *service.PushService
+	PushPublicKey        string
 }
 
 type Server struct {
@@ -61,6 +63,9 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("GET /api/v1/auth/me", s.authenticated(http.HandlerFunc(s.me)))
 	mux.Handle("GET /api/v1/machines", s.authenticated(http.HandlerFunc(s.machines)))
 	mux.Handle("GET /api/v1/shifts", s.authenticated(http.HandlerFunc(s.shifts)))
+	mux.Handle("GET /api/v1/push/config", s.authenticated(http.HandlerFunc(s.pushConfig)))
+	mux.Handle("PUT /api/v1/push/subscription", s.authenticated(http.HandlerFunc(s.pushSubscribe)))
+	mux.Handle("DELETE /api/v1/push/subscription", s.authenticated(http.HandlerFunc(s.pushUnsubscribe)))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages", s.authenticated(http.HandlerFunc(s.listMessages)))
 	mux.HandleFunc("GET /api/v1/machines/{machineID}/messages/ws", s.messageSocket)
 	mux.Handle("POST /api/v1/machines/{machineID}/messages", s.authenticated(s.upload(http.HandlerFunc(s.createMessage))))

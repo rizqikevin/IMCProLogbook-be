@@ -20,6 +20,10 @@ Jangan jalankan `docker compose down -v` jika ingin mempertahankan data.
 Frontend mendengarkan port 18472. Backend memakai port 18473 di jaringan Docker
 (`app:18473`), tanpa port publik; frontend meneruskan `/api` ke backend tersebut.
 
+## Web Push notifications
+
+Generate VAPID credentials once with `docker compose run --rm app generate-vapid-keys`, then place the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` plus a `VAPID_SUBJECT` such as `mailto:admin@example.com` in `.env`. Set all three together; leaving any value out disables push configuration. Production subject URLs must use HTTPS or `mailto:`.
+
 ## Konfigurasi sementara
 
 Database memakai username/password internal `logbook` yang tertulis di Compose.

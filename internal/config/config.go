@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/elliptic"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -23,6 +25,9 @@ type Config struct {
 	S3PathStyle          bool
 	S3KeyPrefix          string
 	AllowedOrigins       []string
+	PushPublicKey        string
+	PushPrivateKey       string
+	PushSubject          string
 	SessionTTL           time.Duration
 	RequestTimeout       time.Duration
 	ShutdownTimeout      time.Duration
@@ -45,6 +50,9 @@ func Load() (Config, error) {
 		S3Region:         value("AWS_REGION", "us-east-1"),
 		S3Endpoint:       os.Getenv("S3_ENDPOINT"),
 		S3KeyPrefix:      os.Getenv("S3_KEY_PREFIX"),
+		PushPublicKey:    os.Getenv("VAPID_PUBLIC_KEY"),
+		PushPrivateKey:   os.Getenv("VAPID_PRIVATE_KEY"),
+		PushSubject:      os.Getenv("VAPID_SUBJECT"),
 	}
 	var err error
 	readInt := func(key string, fallback, min, max int64) int64 {
@@ -87,6 +95,23 @@ func Load() (Config, error) {
 	if c.StorageDriver == "s3" && c.S3Bucket == "" {
 		err = errors.Join(err, errors.New("S3_BUCKET is required for s3 storage"))
 	}
+	pushValues := []string{c.PushPublicKey, c.PushPrivateKey, c.PushSubject}
+	pushSet := 0
+	for _, v := range pushValues {
+		if v != "" {
+			pushSet++
+		}
+	}
+	if pushSet != 0 && pushSet != len(pushValues) {
+		err = errors.Join(err, errors.New("VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT must be set together"))
+	} else if pushSet == len(pushValues) {
+		if e := validateVAPIDPair(c.PushPublicKey, c.PushPrivateKey); e != nil {
+			err = errors.Join(err, e)
+		}
+		if !validPushSubject(c.PushSubject) {
+			err = errors.Join(err, errors.New("VAPID_SUBJECT must be a mailto: or https: URL"))
+		}
+	}
 	if c.MaxPhotoBytes > c.MaxRequestBytes {
 		err = errors.Join(err, errors.New("MAX_PHOTO_BYTES cannot exceed MAX_REQUEST_BYTES"))
 	}
@@ -121,4 +146,25 @@ func value(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func validPushSubject(subject string) bool {
+	u, err := url.Parse(subject)
+	return err == nil && u.User == nil && u.RawQuery == "" && u.Fragment == "" && ((u.Scheme == "https" && u.Host != "") || (u.Scheme == "mailto" && u.Opaque != ""))
+}
+
+func validateVAPIDPair(publicKey, privateKey string) error {
+	priv, err := base64.RawURLEncoding.DecodeString(privateKey)
+	if err != nil || len(priv) != 32 {
+		return errors.New("VAPID_PRIVATE_KEY must be a base64url P-256 private key")
+	}
+	pub, err := base64.RawURLEncoding.DecodeString(publicKey)
+	if err != nil || len(pub) != 65 || pub[0] != 4 {
+		return errors.New("VAPID_PUBLIC_KEY must be a base64url uncompressed P-256 public key")
+	}
+	x, y := elliptic.P256().ScalarBaseMult(priv)
+	if x == nil || !elliptic.P256().IsOnCurve(x, y) || fmt.Sprintf("%x", elliptic.Marshal(elliptic.P256(), x, y)) != fmt.Sprintf("%x", pub) {
+		return errors.New("VAPID_PUBLIC_KEY does not match VAPID_PRIVATE_KEY")
+	}
+	return nil
 }

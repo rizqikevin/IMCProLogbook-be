@@ -62,6 +62,11 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 	}
 	created = withMessagePhotoURLs(created)
 	s.publishMessage(MessageEvent{Type: "created", MachineID: machineID, MessageID: created.ID, Message: &created})
+	if s.push != nil {
+		if ids, fanoutErr := s.repo.ActiveUserIDs(ctx, user.ID); fanoutErr == nil {
+			_ = s.push.EnqueueUsers(ids, user.ID, map[string]any{"message_id": created.ID, "machine_id": machineID})
+		}
+	}
 	return created, nil
 }
 

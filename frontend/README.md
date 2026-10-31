@@ -304,3 +304,11 @@ Instalasi pada perangkat Android/iPhone fisik tetap perlu diuji lewat domain And
 
 Referensi: [MDN installable PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable)
 dan [panduan Apple](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
+
+## Pemberitahuan pesan
+
+Pemberitahuan saat aplikasi tertutup memakai Web Push dan memerlukan VAPID pada backend. Buat pasangan kunci sekali dengan `go run ./cmd/logbook generate-vapid-keys`, simpan `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, dan `VAPID_SUBJECT` sebagai secret deployment. Tanpa ketiganya, fitur tetap nonaktif dan tidak mengaku berhasil.
+
+Pengguna harus menekan **Aktifkan notifikasi** setelah login. Browser meminta izin hanya dari tindakan itu. Origin production harus HTTPS; `localhost` dapat dipakai untuk pengujian. Isi notifikasi generik dan tidak memuat teks pesan atau nama mesin. Menekan notifikasi membuka percakapan mesin terkait.
+
+Web Push bergantung pada dukungan browser/platform dan provider push browser. Pengiriman ke provider eksternal serta tampilan lock-screen perangkat harus diuji pada deployment dengan kunci nyata; test lokal hanya membuktikan konfigurasi, persistensi subscription, enkripsi backend, dan Service Worker.

@@ -30,6 +30,23 @@ func (r *Repository) CreateUser(ctx context.Context, user domain.User) error {
 	return mapError(err)
 }
 
+func (r *Repository) ActiveUserIDs(ctx context.Context, excludeID string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id::text FROM users WHERE active = TRUE AND id <> $1::uuid`, excludeID)
+	if err != nil {
+		return nil, fmt.Errorf("list active users: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (r *Repository) SetPassword(ctx context.Context, username, passwordHash string) error {
 	return r.updateUser(ctx, username, `UPDATE users SET password_hash = $2 WHERE username = $1 RETURNING id::text`, passwordHash)
 }

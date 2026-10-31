@@ -9,6 +9,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { readSession, request, saveSession } from "./lib/api";
 import { queryClient } from "./queryClient";
 import { ErrorNotice, Loading, SkeletonAuth } from "./components/common";
+import { disablePush } from "./lib/push";
 
 const AuthContext = createContext(null);
 
@@ -19,6 +20,7 @@ export function AuthProvider({ children }) {
   const [attempt, setAttempt] = useState(0);
   const [expiresAt, setExpiresAt] = useState(() => readSession()?.expires_at);
   const clear = useCallback(() => {
+    void disablePush().catch(() => {});
     saveSession(null);
     setUser(null);
     setExpiresAt(null);
@@ -82,6 +84,7 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
+    await disablePush();
     try {
       await request("/auth/logout", { method: "POST" });
     } catch (error) {

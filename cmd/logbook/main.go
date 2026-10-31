@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/term"
 	"machine-logbook/internal/config"
@@ -39,7 +40,15 @@ func run(logger *slog.Logger) error {
 		command = os.Args[1]
 	}
 	if command == "help" || command == "--help" || command == "-h" {
-		fmt.Println("Usage: logbook [serve | migrate up|down | user create|reset-password|disable]")
+		fmt.Println("Usage: logbook [serve | generate-vapid-keys | migrate up|down | user create|reset-password|disable]")
+		return nil
+	}
+	if command == "generate-vapid-keys" {
+		privateKey, publicKey, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("VAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\n", publicKey, privateKey)
 		return nil
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -121,7 +130,13 @@ func run(logger *slog.Logger) error {
 	repo := repository.New(pool)
 	books := service.NewLogbooks(repo, store, service.Limits{MaxPhotosPerUpload: cfg.MaxPhotosPerUpload, MaxPhotosPerLogbook: cfg.MaxPhotosPerLogbook, MaxPhotoBytes: cfg.MaxPhotoBytes, MaxImagePixels: cfg.MaxImagePixels}, logger)
 	auth := service.NewAuth(repo, cfg.SessionTTL)
-	handler := httpapi.New(books, auth, httpapi.Options{SocketContext: ctx, Logger: logger, AllowedOrigins: cfg.AllowedOrigins, MaxRequestBytes: cfg.MaxRequestBytes, MaxConcurrentUploads: cfg.MaxConcurrentUploads, RequestTimeout: cfg.RequestTimeout, Ready: func(ctx context.Context) error {
+	var push *service.PushService
+	if cfg.PushPublicKey != "" && cfg.PushPrivateKey != "" && cfg.PushSubject != "" {
+		push = service.NewPushService(repo, service.PushConfig{VAPIDPublicKey: cfg.PushPublicKey, VAPIDPrivateKey: cfg.PushPrivateKey, Subscriber: cfg.PushSubject, TrustedHosts: cfg.AllowedOrigins})
+		books.SetPushService(push)
+		defer push.Close()
+	}
+	handler := httpapi.New(books, auth, httpapi.Options{Push: push, PushPublicKey: cfg.PushPublicKey, SocketContext: ctx, Logger: logger, AllowedOrigins: cfg.AllowedOrigins, MaxRequestBytes: cfg.MaxRequestBytes, MaxConcurrentUploads: cfg.MaxConcurrentUploads, RequestTimeout: cfg.RequestTimeout, Ready: func(ctx context.Context) error {
 		if err := pool.Ping(ctx); err != nil {
 			return err
 		}

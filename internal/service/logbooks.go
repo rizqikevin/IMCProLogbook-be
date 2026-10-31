@@ -27,6 +27,7 @@ import (
 type Repository interface {
 	Machines(context.Context) ([]domain.Machine, error)
 	Shifts(context.Context) ([]domain.Shift, error)
+	ActiveUserIDs(context.Context, string) ([]string, error)
 	CheckReferences(context.Context, int64, int64) error
 	CheckMachine(context.Context, int64) error
 	CreateMessage(context.Context, domain.Message) (domain.Message, error)
@@ -68,7 +69,10 @@ type Logbooks struct {
 	logger             *slog.Logger
 	messageMu          sync.Mutex
 	messageSubscribers map[chan MessageEvent]int64
+	push               *PushService
 }
+
+func (s *Logbooks) SetPushService(push *PushService) { s.push = push }
 
 func NewLogbooks(repo Repository, store storage.Store, limits Limits, logger *slog.Logger) *Logbooks {
 	if logger == nil {
