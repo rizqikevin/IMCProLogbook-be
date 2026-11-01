@@ -4,7 +4,6 @@ import { useAuth } from "../auth";
 import { ErrorNotice, Icon } from "./common";
 import { MessageDrafts } from "./MessageDrafts";
 import { ThemeToggle } from "../theme";
-import NotificationSettings from "./NotificationSettings";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -67,7 +66,6 @@ export default function Layout() {
         </div>
       )}
       <main id="main" tabIndex={-1} className={conversation ? "conversation-main" : undefined}>
-        <NotificationSettings hidden={Boolean(conversation)} />
         <MessageDrafts><Outlet /></MessageDrafts>
       </main>
       {!conversation && <footer className="app-footer">
