@@ -29,6 +29,7 @@ type Config struct {
 	PushPrivateKey       string
 	PushSubject          string
 	SessionTTL           time.Duration
+	SessionCookieSecure  bool
 	RequestTimeout       time.Duration
 	ShutdownTimeout      time.Duration
 	MaxRequestBytes      int64
@@ -76,7 +77,15 @@ func Load() (Config, error) {
 	c.MaxPhotosPerUpload = int(readInt("MAX_PHOTOS_PER_UPLOAD", 20, 1, 100))
 	c.MaxPhotosPerLogbook = int(readInt("MAX_PHOTOS_PER_LOGBOOK", 100, 1, 1000))
 	c.MaxConcurrentUploads = int(readInt("MAX_CONCURRENT_UPLOADS", 4, 1, 32))
-	c.SessionTTL = readDuration("SESSION_TTL", "12h", time.Minute, 30*24*time.Hour)
+	c.SessionTTL = readDuration("SESSION_TTL", "720h", time.Minute, 30*24*time.Hour)
+	cookieSecure, cookieErr := strconv.ParseBool(value("SESSION_COOKIE_SECURE", strconv.FormatBool(c.Environment == "production")))
+	c.SessionCookieSecure = cookieSecure
+	if cookieErr != nil {
+		err = errors.Join(err, errors.New("SESSION_COOKIE_SECURE must be true or false"))
+	}
+	if c.Environment == "production" && !c.SessionCookieSecure {
+		err = errors.Join(err, errors.New("production requires SESSION_COOKIE_SECURE=true"))
+	}
 	c.RequestTimeout = readDuration("REQUEST_TIMEOUT", "2m", 5*time.Second, 15*time.Minute)
 	c.ShutdownTimeout = readDuration("SHUTDOWN_TIMEOUT", "30s", time.Second, 5*time.Minute)
 	c.S3PathStyle, _ = strconv.ParseBool(value("S3_PATH_STYLE", "false"))

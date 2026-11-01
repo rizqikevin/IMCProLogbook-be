@@ -1,4 +1,4 @@
-import { readSession, request } from "./api";
+import { getSessionGeneration, request } from "./api";
 
 const ownerKey = "logbook-push-owner";
 let pending = Promise.resolve();
@@ -33,13 +33,13 @@ async function registration() {
 }
 
 export function syncPush(userId, enable = false) {
-  const token = readSession()?.access_token;
+  const generation = getSessionGeneration();
   // Permission must start synchronously inside the user's click, before network work.
   const permission = enable ? Notification.requestPermission() : Promise.resolve(Notification.permission);
   return serialized(async () => {
     const allowed = await permission;
     const current = () => {
-      if (!token || readSession()?.access_token !== token) throw new Error("Sesi berubah. Muat ulang halaman sebelum mengatur notifikasi.");
+      if (getSessionGeneration() !== generation) throw new Error("Sesi berubah. Muat ulang halaman sebelum mengatur notifikasi.");
     };
     current();
     const config = await request("/push/config");
@@ -76,12 +76,15 @@ export function syncPush(userId, enable = false) {
 }
 
 export function disablePush() {
+  const generation = getSessionGeneration();
   return serialized(async () => {
     if (!pushSupported()) return;
     const worker = await navigator.serviceWorker.getRegistration();
     const subscription = await worker?.pushManager.getSubscription();
+    if (generation !== getSessionGeneration()) throw new Error("Sesi berubah. Muat ulang halaman sebelum mengatur notifikasi.");
     if (subscription) {
-      await request("/push/subscription", { method: "DELETE", body: { endpoint: subscription.endpoint } });
+      await request("/push/subscription", { method: "DELETE", body: { endpoint: subscription.endpoint }, authenticated: false });
+      if (generation !== getSessionGeneration()) throw new Error("Sesi berubah. Muat ulang halaman sebelum mengatur notifikasi.");
       if (!await subscription.unsubscribe()) throw new Error("Notifikasi belum dapat dimatikan di browser. Coba lagi sebelum keluar.");
     }
     localStorage.removeItem(ownerKey);

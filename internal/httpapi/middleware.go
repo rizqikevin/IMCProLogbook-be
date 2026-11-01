@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -98,13 +99,14 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 			}
 			if !sameOrigin {
 				out.Header().Set("Access-Control-Allow-Origin", origin)
+				out.Header().Set("Access-Control-Allow-Credentials", "true")
 				out.Header().Set("Access-Control-Expose-Headers", "X-Request-ID, Location, ETag")
 			}
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				if !sameOrigin {
 					out.Header().Add("Vary", "Access-Control-Request-Method")
 					out.Header().Add("Vary", "Access-Control-Request-Headers")
-					out.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS")
+					out.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
 					out.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 					out.Header().Set("Access-Control-Max-Age", "600")
 				}
@@ -118,9 +120,13 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 
 func (s *Server) authenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := bearer(r)
+		token, cookieAuth := sessionToken(r)
 		if token == "" {
 			s.failure(w, r, domain.ErrUnauthorized)
+			return
+		}
+		if cookieAuth && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !s.trustedRequestOrigin(r) {
+			problem(w, r, http.StatusForbidden, "origin_not_allowed", "trusted Origin or Referer required")
 			return
 		}
 		user, err := s.auth.Authenticate(r.Context(), token)
@@ -130,6 +136,52 @@ func (s *Server) authenticated(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey, user)))
 	})
+}
+
+const sessionCookieName = "logbook_session"
+
+func sessionToken(r *http.Request) (string, bool) {
+	if r.Header.Get("Authorization") != "" {
+		return bearer(r), false
+	}
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		return cookie.Value, true
+	}
+	return "", false
+}
+
+func (s *Server) trustedRequestOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		u, err := url.Parse(r.Referer())
+		if err != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return false
+		}
+		origin = u.Scheme + "://" + u.Host
+	}
+	scheme := "http"
+	if s.opts.SessionCookieSecure || r.TLS != nil {
+		scheme = "https"
+	}
+	if origin == scheme+"://"+r.Host {
+		return true
+	}
+	for _, allowed := range s.opts.AllowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, token string, expires time.Time) {
+	maxAge := int(time.Until(expires).Seconds())
+	if token == "" {
+		maxAge = -1
+	} else if maxAge < 1 {
+		maxAge = 1
+	}
+	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: token, Path: "/api/v1", HttpOnly: true, Secure: s.opts.SessionCookieSecure, SameSite: http.SameSiteStrictMode, Expires: expires, MaxAge: maxAge})
 }
 func (s *Server) admin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

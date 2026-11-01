@@ -81,6 +81,17 @@ func TestMessageSocketAuthIsolationAndSend(t *testing.T) {
 		t.Fatal("foreign origin accepted")
 	}
 	token := base64.RawURLEncoding.EncodeToString(make([]byte, 32))
+	cookieConn, _, err := websocket.Dial(ctx, url+"1/messages/ws", &websocket.DialOptions{HTTPHeader: http.Header{"Origin": {server.URL}, "Cookie": {sessionCookieName + "=" + token}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := wsjson.Write(ctx, cookieConn, socketCommand{Type: "auth"}); err != nil {
+		t.Fatal(err)
+	}
+	if read(cookieConn)["type"] != "ready" {
+		t.Fatal("cookie auth missing ready")
+	}
+	cookieConn.CloseNow()
 	sender, peer, other := dial("1", token), dial("1", token), dial("2", token)
 	for _, conn := range []*websocket.Conn{sender, peer, other} {
 		if read(conn)["type"] != "ready" {

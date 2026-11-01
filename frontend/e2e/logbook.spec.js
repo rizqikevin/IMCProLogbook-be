@@ -12,20 +12,15 @@ const test = base.extend({
       await page.getByLabel("Kata sandi", { exact: true }).fill("frontend-test-only-123");
       await page.getByRole("button", { name: "Masuk", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Pilih mesin", exact: true })).toBeVisible();
-      const session = await page.evaluate(() => sessionStorage.getItem("machine-logbook-session"));
-      expect(JSON.parse(session).access_token).toBeTruthy();
-      await use({ session, origin: new URL(page.url()).origin });
+      const cookies = await context.cookies();
+      expect(cookies.find((cookie) => cookie.name === "logbook_session")?.httpOnly).toBe(true);
+      await use(cookies);
     } finally {
       await context.close();
     }
   }, { scope: "worker" }],
   page: async ({ page, operatorSession }, use) => {
-    // sessionStorage is not part of Playwright storageState; seed each isolated tab.
-    await page.addInitScript(({ session, origin }) => {
-      if (location.origin === origin && !sessionStorage.getItem("machine-logbook-session")) {
-        sessionStorage.setItem("machine-logbook-session", session);
-      }
-    }, operatorSession);
+    await page.context().addCookies(operatorSession);
     await use(page);
   },
 });
@@ -54,9 +49,6 @@ async function photo(page) {
     return canvas.toDataURL("image/png").split(",")[1];
   });
   return { name: "test.png", mimeType: "image/png", buffer: Buffer.from(data, "base64") };
-}
-async function token(page) {
-  return page.evaluate(() => JSON.parse(sessionStorage.getItem("machine-logbook-session")).access_token);
 }
 async function send(page) {
   const response = page.waitForResponse((r) => /\/machines\/\d+\/messages$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
@@ -89,7 +81,7 @@ test("photo markers persist through reload and transformed placement", async ({ 
   box = await image.boundingBox();
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.7);
   await expect(page.locator(".photo-dialog-marker")).toHaveCount(2);
-  const saved = await page.request.get(`${message.photos[0].url}/markers`, { headers: { Authorization: `Bearer ${await token(page)}` } });
+  const saved = await page.request.get(`${message.photos[0].url}/markers`);
   const { items } = await saved.json();
   expect(items[0].x).toBeCloseTo(0.25, 1);
   expect(items[0].y).toBeCloseTo(0.75, 1);
@@ -181,7 +173,7 @@ test("machine conversation persists exact text, photos, both, and historical arc
   await page.screenshot({ path: testInfo.outputPath("conversation.png"), fullPage: true });
 
   const legacyResponse = await page.request.post("/api/v1/logbooks", {
-    headers: { Authorization: `Bearer ${await token(page)}` },
+    headers: { Origin: new URL(page.url()).origin },
     multipart: { machine_id: "1", log_date: testInfo.project.name === "desktop" ? "2025-01-02" : "2025-01-03", shift_id: "1", photos: image },
   });
   expect(legacyResponse.status()).toBe(201);
@@ -506,7 +498,7 @@ test("long chat scrolls its timeline while header and composer stay in viewport"
 
 test("search finds full machine history, paginates matches and survives navigation", async ({ page }, testInfo) => {
   await login(page);
-  const headers = { Authorization: `Bearer ${await token(page)}` };
+  const headers = { Origin: new URL(page.url()).origin };
   const term = `search-${testInfo.project.name}-${Date.now()}`;
   const literalQuery = `${term} oldest 100%_literal`;
   async function post(machine, text, image) {

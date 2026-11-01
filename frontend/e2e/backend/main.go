@@ -75,7 +75,7 @@ func run() error {
 	}
 	defer store.Close()
 	repo := repository.New(pool)
-	auth := service.NewAuth(repo, time.Hour)
+	auth := service.NewAuth(repo, 30*24*time.Hour)
 	for _, role := range []string{"operator", "admin"} {
 		if err := auth.Provision(ctx, role, "Pengujian "+role, "frontend-test-only-123", role); err != nil {
 			return err

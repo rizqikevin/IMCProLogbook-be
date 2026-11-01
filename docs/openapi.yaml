@@ -40,13 +40,14 @@ info:
     Semua respons memiliki X-Request-ID dan Cache-Control: no-store. Request dengan
     Origin yang tidak diizinkan ditolak dengan 403. GET juga menerima HEAD melalui
     router, dengan status/header yang sama tanpa body. Foto selalu diakses dengan
-    Bearer token melalui API; URL foto bukan URL publik storage. Tidak ada dukungan
+    Bearer token atau cookie sesi melalui API; URL foto bukan URL publik storage. Tidak ada dukungan
     Range atau respons 304 untuk If-None-Match pada implementasi ini.
 servers:
   - url: http://localhost:8080
     description: Development lokal; gunakan HTTPS melalui reverse proxy di production.
 security:
   - bearerAuth: []
+  - cookieAuth: []
 tags:
   - name: Health
   - name: Auth
@@ -318,8 +319,11 @@ paths:
         Username dinormalisasi menjadi huruf kecil dan spasi di tepi dihapus.
         Maksimum body JSON 4096 byte. Hanya satu objek JSON diterima; field yang
         tidak dikenal ditolak. Percobaan login dibatasi 10 per menit per IP koneksi
-        langsung pada setiap proses server. Masa sesi default 12 jam, dapat diatur
-        server. Tidak ada refresh token; login kembali setelah sesi kedaluwarsa.
+        langsung pada setiap proses server. Masa sesi absolut default 30 hari (720h), dapat diatur
+        server. Tidak ada refresh token atau perpanjangan otomatis; login kembali setelah sesi kedaluwarsa.
+        Browser memakai cookie HttpOnly logbook_session, bukan menyimpan access_token.
+        Pulihkan akun dengan GET /api/v1/auth/me. Request cookie yang mengubah data
+        wajib membawa Origin atau Referer tepercaya, jika tidak ditolak 403.
       security: []
       requestBody:
         required: true
@@ -329,8 +333,11 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
-          description: Sesi dibuat; simpan access_token dengan aman di aplikasi.
+          description: Sesi dibuat; access_token tetap tersedia untuk klien API. Browser memakai cookie.
           headers:
+            Set-Cookie:
+              description: logbook_session; Path=/api/v1; HttpOnly; SameSite=Strict; Max-Age dan Expires sesuai sesi. Secure wajib di production.
+              schema: {type: string}
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
           content:
@@ -379,7 +386,7 @@ paths:
       tags: [Auth]
       operationId: logout
       summary: Mencabut sesi yang sedang digunakan
-      description: Token yang telah dicabut menghasilkan 401 pada request berikutnya.
+      description: Menerima Bearer atau cookie, menghapus sesi database dan cookie. Token yang dicabut menghasilkan 401 pada request berikutnya.
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -877,6 +884,11 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
 components:
   securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: logbook_session
+      description: Cookie browser HttpOnly, SameSite Strict; path /api/v1. Mutasi wajib Origin atau Referer tepercaya.
     bearerAuth:
       type: http
       scheme: bearer
@@ -1085,7 +1097,7 @@ components:
           description: Waktu upload dalam UTC, bukan waktu pengambilan foto.
         url:
           type: string
-          description: Path relatif API yang tetap memerlukan Bearer token.
+          description: Path relatif API yang tetap memerlukan Bearer token atau cookie sesi.
           example: /api/v1/logbooks/550e8400-e29b-41d4-a716-446655440000/photos/550e8400-e29b-41d4-a716-446655440001
     Logbook:
       type: object

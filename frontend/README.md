@@ -27,7 +27,8 @@ Reverse proxy eksternal harus meneruskan header `Upgrade`/`Connection` dan memak
 idle timeout lebih dari 35 detik. Origin mengikuti `CORS_ALLOWED_ORIGINS` atau origin
 yang sama. Token tidak pernah dimasukkan ke URL.
 
-Frame pertama wajib `{"type":"auth","token":"<access_token>"}` dalam 5 detik.
+Frame pertama browser wajib `{"type":"auth","token":""}` dalam 5 detik;
+server membaca cookie sesi HttpOnly. Klien API dapat mengirim token Bearer pada frame tersebut.
 Setelah `{"type":"ready"}`, klien dapat mengirim
 `{"type":"send","request_id":"<unique-id>","text":"catatan"}`.
 Server mengembalikan `ack` dengan `request_id` dan `message`, atau `error` dengan
@@ -167,9 +168,19 @@ pesan pengguna lain, termasuk oleh admin; arsip lama tidak dapat diedit melalui 
 - Batas foto mengikuti default backend: 20 foto per request, 10 MiB/foto,
   40 megapiksel, dan total foto maksimal 95.000.000 byte. JPG, PNG, dan WebP
   diterima; HEIC harus dikonversi dahulu. Foto perangkat tidak dikompresi ulang.
-- Token sesi berada di `sessionStorage` atau memori jika storage tidak tersedia.
-  Password tidak disimpan. Foto dimuat lewat helper Bearer-token sebagai blob,
-  termasuk URL foto arsip lama; blob URL dilepas saat tidak digunakan.
+- Sesi browser memakai cookie `logbook_session` HttpOnly dengan masa berlaku absolut
+  30 hari sejak login, bukan diperpanjang oleh aktivitas. Cookie bertahan setelah
+  reload atau browser ditutup; `GET /api/v1/auth/me` memulihkan identitas saat aplikasi dibuka.
+  Token dan password tidak disimpan di `sessionStorage` atau `localStorage`,
+  dan JavaScript tidak membaca token sesi. Tidak ada timer logout di browser;
+  server memeriksa sesi dan penolakan 401 mengakhiri status login.
+  Logout mencabut sesi server sebelum identitas lokal dihapus; kegagalan tetap ditampilkan.
+  Cookie memakai `SameSite=Strict`, path `/api/v1`, dan `Secure` pada deployment HTTPS production.
+  Request HTTP memakai `credentials: "include"`; request cookie yang mengubah data
+  wajib memiliki Origin atau Referer tepercaya. Gunakan frontend dan API pada site
+  yang sama; proxy `/api` direkomendasikan karena cookie Strict tidak mendukung cross-site.
+  Foto dan unduhan dimuat melalui cookie sebagai blob, termasuk URL foto arsip lama;
+  blob URL dilepas saat tidak digunakan.
 
 ## Kontrak percakapan
 

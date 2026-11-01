@@ -27,6 +27,7 @@ type Options struct {
 	SocketContext        context.Context
 	Push                 *service.PushService
 	PushPublicKey        string
+	SessionCookieSecure  bool
 }
 
 type Server struct {
@@ -133,14 +134,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.failure(w, r, err)
 		return
 	}
+	s.setSessionCookie(w, result.AccessToken, result.ExpiresAt)
 	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if err := s.auth.Logout(r.Context(), bearer(r)); err != nil {
+	token, _ := sessionToken(r)
+	if err := s.auth.Logout(r.Context(), token); err != nil {
 		s.failure(w, r, err)
 		return
 	}
+	s.setSessionCookie(w, "", time.Unix(1, 0))
 	w.WriteHeader(http.StatusNoContent)
 }
 

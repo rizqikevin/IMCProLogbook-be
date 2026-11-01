@@ -1,25 +1,13 @@
 const base = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const sessionKey = "machine-logbook-session";
-let memorySession = null;
+let sessionGeneration = 0;
 let socketRequestSequence = 0;
 
-export function readSession() {
-  try {
-    const stored = JSON.parse(sessionStorage.getItem(sessionKey));
-    return stored?.access_token && stored?.expires_at ? stored : memorySession;
-  } catch {
-    return memorySession;
-  }
+export function getSessionGeneration() {
+  return sessionGeneration;
 }
 
-export function saveSession(session) {
-  memorySession = session;
-  try {
-    if (session) sessionStorage.setItem(sessionKey, JSON.stringify(session));
-    else sessionStorage.removeItem(sessionKey);
-  } catch {
-    /* Session remains in memory when browser storage is unavailable. */
-  }
+export function advanceSession() {
+  return ++sessionGeneration;
 }
 
 export class ApiError extends Error {
@@ -66,9 +54,9 @@ function responseError(status, payload) {
   );
 }
 
-function expireSession(token) {
-  if (token && readSession()?.access_token === token) {
-    saveSession(null);
+function expireSession(generation) {
+  if (generation === sessionGeneration) {
+    advanceSession();
     window.dispatchEvent(new Event("logbook:session-expired"));
   }
 }
@@ -77,9 +65,8 @@ export async function request(
   path,
   { method = "GET", body, signal, authenticated = true, blob = false } = {},
 ) {
-  const token = authenticated ? readSession()?.access_token : null;
+  const generation = sessionGeneration;
   const headers = { Accept: blob ? "image/*" : "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
   const multipart = body instanceof FormData;
   if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
   let response;
@@ -89,7 +76,7 @@ export async function request(
       headers,
       body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
       signal,
-      credentials: "omit",
+      credentials: "include",
       cache: "no-store",
     });
   } catch (error) {
@@ -98,7 +85,7 @@ export async function request(
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    if (response.status === 401 && authenticated) expireSession(token);
+    if (response.status === 401 && authenticated) expireSession(generation);
     throw responseError(response.status, payload);
   }
   if (response.status === 204) return null;
@@ -138,11 +125,11 @@ export function connectMessages(machineId, onEvent, onStatus) {
   const uncertain = () => new ApiError("Koneksi terputus. Status kiriman belum pasti. Periksa riwayat sebelum mengirim ulang.");
   function open() {
     onStatus("connecting");
-    const token = readSession()?.access_token;
+    const generation = sessionGeneration;
     socket = new WebSocket(url);
     const current = socket;
     const deadline = setTimeout(() => current.close(), 10000);
-    current.onopen = () => current.send(JSON.stringify({ type: "auth", token }));
+    current.onopen = () => current.send(JSON.stringify({ type: "auth", token: "" }));
     current.onmessage = ({ data }) => {
       let event;
       try { event = JSON.parse(data); } catch { current.close(); return; }
@@ -171,7 +158,7 @@ export function connectMessages(machineId, onEvent, onStatus) {
       pending.clear();
       if (stopped) return;
       onStatus("disconnected");
-      if (event.code === 1008 && event.reason === "unauthorized") { expireSession(token); return; }
+      if (event.code === 1008 && event.reason === "unauthorized") { expireSession(generation); return; }
       retry = setTimeout(open, 3000);
     };
   }

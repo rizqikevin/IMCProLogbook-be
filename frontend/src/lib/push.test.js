@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { readSession, request } from "./api";
-import { syncPush } from "./push";
+import { getSessionGeneration, request } from "./api";
+import { disablePush, syncPush } from "./push";
 
-vi.mock("./api", () => ({ readSession: vi.fn(), request: vi.fn() }));
+vi.mock("./api", () => ({ getSessionGeneration: vi.fn(), request: vi.fn() }));
 
 let worker;
 let subscription;
@@ -16,7 +16,7 @@ beforeEach(() => {
     setItem: (key, value) => storage.set(key, value),
     removeItem: (key) => storage.delete(key),
   });
-  readSession.mockReturnValue({ access_token: "session" });
+  getSessionGeneration.mockReturnValue(1);
   request.mockImplementation(async (path) => path === "/push/config" ? { enabled: true, public_key: "AQID" } : undefined);
   subscription = {
     endpoint: "https://push.test/current",
@@ -94,7 +94,7 @@ it("removes another account's subscription even when backend push is disabled", 
 it("cleans up a new subscription if the session changes during subscribe", async () => {
   worker.pushManager.getSubscription.mockResolvedValue(null);
   worker.pushManager.subscribe.mockImplementation(async () => {
-    readSession.mockReturnValue(null);
+    getSessionGeneration.mockReturnValue(2);
     return subscription;
   });
   await expect(syncPush(1, true)).rejects.toThrow("Sesi berubah");
@@ -110,4 +110,15 @@ it("does not leave ownership behind after backend registration fails", async () 
   await expect(syncPush(1, true)).rejects.toThrow("offline");
   expect(subscription.unsubscribe).toHaveBeenCalledOnce();
   expect(storage.has("logbook-push-owner")).toBe(false);
+});
+
+it("preserves browser subscription when logout cleanup fails", async () => {
+  vi.stubGlobal("window", { isSecureContext: true, PushManager: {}, Notification: {} });
+  request.mockRejectedValue(new Error("offline"));
+  await expect(disablePush()).rejects.toThrow("offline");
+  expect(request).toHaveBeenCalledWith("/push/subscription", {
+    method: "DELETE", body: { endpoint: subscription.endpoint }, authenticated: false,
+  });
+  expect(subscription.unsubscribe).not.toHaveBeenCalled();
+  expect(storage.has("logbook-push-owner")).toBe(true);
 });

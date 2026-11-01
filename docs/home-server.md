@@ -20,6 +20,28 @@ Jangan jalankan `docker compose down -v` jika ingin mempertahankan data.
 Frontend mendengarkan port 18472. Backend memakai port 18473 di jaringan Docker
 (`app:18473`), tanpa port publik; frontend meneruskan `/api` ke backend tersebut.
 
+## Sesi browser
+
+Sesi baru berlaku maksimal 30 hari (`SESSION_TTL=720h`), tanpa perpanjangan otomatis
+atau refresh token. Login menetapkan cookie `logbook_session` dengan `HttpOnly`,
+`SameSite=Strict`, path `/api/v1`, serta expiry yang sama dengan sesi database.
+Browser memulihkan akun melalui `GET /api/v1/auth/me`, bukan token di localStorage.
+Logout menghapus sesi database dan cookie; reset password atau menonaktifkan akun
+juga mencabut sesi. Sesi lama tetap memakai waktu kedaluwarsa saat dibuat.
+
+Compose memakai `SESSION_COOKIE_SECURE=true`. Production wajib HTTPS, termasuk
+saat TLS dihentikan oleh reverse proxy atau Cloudflare Tunnel. Jangan menentukan
+Secure dari header proxy. Untuk development HTTP lokal non-production, set
+`APP_ENV=development` dan `SESSION_COOKIE_SECURE=false` di `.env`.
+
+Request cookie yang mengubah data wajib membawa `Origin` atau `Referer` tepercaya;
+tanpa keduanya ditolak 403. Reverse proxy harus mempertahankan Host publik dan
+header Origin/Referer. Origin tambahan harus tercantum persis di
+`CORS_ALLOWED_ORIGINS`; SameSite Strict tetap membatasi penggunaan lintas situs.
+Klien API tetap dapat memakai `Authorization: Bearer` tanpa pemeriksaan CSRF cookie.
+WebSocket browser mengirim frame awal `{"type":"auth","token":""}` dan memakai
+cookie dengan pemeriksaan origin; klien API tetap dapat mengirim token di frame.
+
 ## Web Push notifications
 
 Generate VAPID credentials once with `docker compose run --rm app generate-vapid-keys`, then place the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` plus a `VAPID_SUBJECT` such as `mailto:admin@example.com` in `.env`. Set all three together; leaving all three empty disables push, while a partial configuration fails startup. Production subject URLs must use HTTPS or `mailto:`. Keep existing keys: replacing them invalidates existing browser subscriptions.
@@ -35,8 +57,8 @@ Startup logs report `web push configuration` with `enabled`. Delivery failures r
 Database memakai username/password internal `logbook` yang tertulis di Compose.
 Database dan API tidak memublikasikan port ke host. Hanya frontend yang tersedia
 di `127.0.0.1:18472`. Akun aplikasi tetap dibuat sendiri, bukan memakai password
-PostgreSQL. Pengaturan storage di `.env` diteruskan ke container; pengaturan
-aplikasi lainnya tetap mengikuti nilai inline pada Compose.
+PostgreSQL. Pengaturan storage, `APP_ENV`, `SESSION_TTL`, dan `SESSION_COOKIE_SECURE`
+di `.env` diteruskan ke container; pengaturan lainnya mengikuti Compose.
 
 Jika database lama menggunakan password berbeda, sesuaikan password di tiga tempat
 pada Compose: service `db`, URL database `migrate`, dan URL database `app`.

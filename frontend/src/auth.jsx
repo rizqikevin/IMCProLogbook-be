@@ -6,9 +6,9 @@ import {
   useState,
 } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { readSession, request, saveSession } from "./lib/api";
+import { advanceSession, getSessionGeneration, request } from "./lib/api";
 import { queryClient } from "./queryClient";
-import { ErrorNotice, Loading, SkeletonAuth } from "./components/common";
+import { ErrorNotice, SkeletonAuth } from "./components/common";
 import { disablePush } from "./lib/push";
 
 const AuthContext = createContext(null);
@@ -18,32 +18,27 @@ export function AuthProvider({ children }) {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
-  const [expiresAt, setExpiresAt] = useState(() => readSession()?.expires_at);
   const clear = useCallback(() => {
-    void disablePush().catch(() => {});
-    saveSession(null);
+    advanceSession();
     setUser(null);
-    setExpiresAt(null);
+    setError(null);
     setStatus("anonymous");
     queryClient.clear();
   }, []);
 
   useEffect(() => {
-    const session = readSession();
-    if (!session || new Date(session.expires_at).getTime() <= Date.now()) {
-      clear();
-      return;
-    }
+    const generation = getSessionGeneration();
     const controller = new AbortController();
     setStatus("loading");
     setError(null);
-    request("/auth/me", { signal: controller.signal })
+    request("/auth/me", { signal: controller.signal, authenticated: false })
       .then((data) => {
+        if (controller.signal.aborted || generation !== getSessionGeneration()) return;
         setUser(data);
         setStatus("authenticated");
       })
       .catch((error) => {
-        if (error.name === "AbortError") return;
+        if (controller.signal.aborted || generation !== getSessionGeneration() || error.name === "AbortError") return;
         if (error.status === 401) clear();
         else {
           setError(error);
@@ -58,39 +53,30 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("logbook:session-expired", clear);
   }, [clear]);
 
-  useEffect(() => {
-    if (!expiresAt) return;
-    const remaining = new Date(expiresAt).getTime() - Date.now();
-    const timer = setTimeout(
-      clear,
-      Math.max(0, Math.min(remaining, 2_147_483_647)),
-    );
-    return () => clearTimeout(timer);
-  }, [expiresAt, clear]);
 
   async function login(username, password) {
-    const result = await request("/auth/login", {
+    const generation = advanceSession();
+    await request("/auth/login", {
       method: "POST",
       body: { username, password },
       authenticated: false,
     });
-    saveSession({
-      access_token: result.access_token,
-      expires_at: result.expires_at,
-    });
-    setExpiresAt(result.expires_at);
-    setUser(result.user);
+    if (generation !== getSessionGeneration()) return;
+    const identityGeneration = advanceSession();
+    const identity = await request("/auth/me");
+    if (identityGeneration !== getSessionGeneration()) return;
+    queryClient.clear();
+    setError(null);
+    setUser(identity);
     setStatus("authenticated");
   }
 
   async function logout() {
+    const generation = getSessionGeneration();
     await disablePush();
-    try {
-      await request("/auth/logout", { method: "POST" });
-    } catch (error) {
-      if (error.status !== 401) throw error;
-    }
-    clear();
+    if (generation !== getSessionGeneration()) return;
+    await request("/auth/logout", { method: "POST", authenticated: false });
+    if (generation === getSessionGeneration()) clear();
   }
 
   return (

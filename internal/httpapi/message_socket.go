@@ -45,8 +45,16 @@ func (s *Server) messageSocket(w http.ResponseWriter, r *http.Request) {
 	authCtx, done := context.WithTimeout(ctx, 5*time.Second)
 	var first socketCommand
 	err = wsjson.Read(authCtx, conn, &first)
-	if err == nil && first.Type == "auth" && first.Token != "" {
-		_, err = s.auth.Authenticate(authCtx, first.Token)
+	if err == nil && first.Type == "auth" {
+		if first.Token == "" {
+			first.Token, _ = sessionToken(r)
+			if !s.trustedRequestOrigin(r) {
+				err = domain.ErrUnauthorized
+			}
+		}
+		if err == nil {
+			_, err = s.auth.Authenticate(authCtx, first.Token)
+		}
 	} else if err == nil {
 		err = domain.ErrUnauthorized
 	}

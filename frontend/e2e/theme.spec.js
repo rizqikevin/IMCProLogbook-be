@@ -11,19 +11,15 @@ const test = base.extend({
       await page.getByLabel("Kata sandi", { exact: true }).fill("frontend-test-only-123");
       await page.getByRole("button", { name: "Masuk", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Pilih mesin", exact: true })).toBeVisible();
-      const session = await page.evaluate(() => sessionStorage.getItem("machine-logbook-session"));
-      expect(JSON.parse(session).access_token).toBeTruthy();
-      await use({ session, origin: new URL(page.url()).origin });
+      const cookies = await context.cookies();
+      expect(cookies.find((cookie) => cookie.name === "logbook_session")?.httpOnly).toBe(true);
+      await use(cookies);
     } finally {
       await context.close();
     }
   }, { scope: "worker" }],
   page: async ({ page, operatorSession }, use) => {
-    await page.addInitScript(({ session, origin }) => {
-      if (location.origin === origin && !sessionStorage.getItem("machine-logbook-session")) {
-        sessionStorage.setItem("machine-logbook-session", session);
-      }
-    }, operatorSession);
+    await page.context().addCookies(operatorSession);
     await use(page);
   },
 });
