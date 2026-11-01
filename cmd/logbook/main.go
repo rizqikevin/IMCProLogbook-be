@@ -136,6 +136,7 @@ func run(logger *slog.Logger) error {
 		books.SetPushService(push)
 		defer push.Close()
 	}
+	logger.Info("web push configuration", "enabled", push != nil)
 	handler := httpapi.New(books, auth, httpapi.Options{Push: push, PushPublicKey: cfg.PushPublicKey, SocketContext: ctx, Logger: logger, AllowedOrigins: cfg.AllowedOrigins, MaxRequestBytes: cfg.MaxRequestBytes, MaxConcurrentUploads: cfg.MaxConcurrentUploads, RequestTimeout: cfg.RequestTimeout, Ready: func(ctx context.Context) error {
 		if err := pool.Ping(ctx); err != nil {
 			return err

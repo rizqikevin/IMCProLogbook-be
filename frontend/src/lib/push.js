@@ -44,25 +44,31 @@ export function syncPush(userId, enable = false) {
     current();
     const config = await request("/push/config");
     current();
-    if (!config.enabled || !config.public_key) return "disabled";
-    const worker = await registration();
+    const enabled = config.enabled && config.public_key;
+    const worker = enabled ? await registration() : await navigator.serviceWorker.getRegistration();
     current();
-    let subscription = await worker.pushManager.getSubscription();
+    let subscription = await worker?.pushManager.getSubscription();
     const stored = owner();
-    if (subscription && (stored?.userId !== String(userId) || stored?.endpoint !== subscription.endpoint)) {
+    const key = enabled ? vapidKey(config.public_key) : null;
+    const subscribedKey = subscription?.options?.applicationServerKey;
+    const bytes = subscribedKey ? new Uint8Array(subscribedKey) : null;
+    const staleKey = key && (!bytes || bytes.length !== key.length || key.some((value, index) => value !== bytes[index]));
+    if (subscription && (stored?.userId !== String(userId) || stored?.endpoint !== subscription.endpoint || staleKey)) {
       if (!await subscription.unsubscribe()) throw new Error("Langganan akun sebelumnya belum dapat dilepas. Coba lagi.");
+      localStorage.removeItem(ownerKey);
       subscription = null;
     }
+    if (!enabled) return "disabled";
     if (allowed !== "granted") return allowed === "denied" ? "denied" : "off";
     if (!subscription && !enable) return "off";
-    if (!subscription) subscription = await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey(config.public_key) });
-    current();
+    if (!subscription) subscription = await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
     try {
+      current();
       remember(userId, subscription.endpoint);
       await request("/push/subscription", { method: "PUT", body: subscription.toJSON() });
       current();
     } catch (error) {
-      await subscription.unsubscribe();
+      if (await subscription.unsubscribe()) localStorage.removeItem(ownerKey);
       throw error;
     }
     return "on";

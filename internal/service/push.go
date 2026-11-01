@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/SherClockHolmes/webpush-go"
-	"machine-logbook/internal/domain"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SherClockHolmes/webpush-go"
+	"machine-logbook/internal/domain"
 )
 
 type PushRepository interface {
@@ -66,20 +68,32 @@ func (p *PushService) worker() {
 		case j := <-p.jobs:
 			subs, err := p.repo.PushSubscriptions(context.Background(), j.userID)
 			if err != nil {
+				slog.Error("push subscription lookup failed", "error_type", fmt.Sprintf("%T", err))
 				continue
 			}
 			for _, s := range subs {
+				provider := ""
+				if endpoint, parseErr := url.Parse(s.Endpoint); parseErr == nil {
+					provider = endpoint.Hostname()
+				}
 				if !validPushEndpoint(s.Endpoint, p.trustedHosts) {
-					_ = p.repo.DeletePushSubscription(context.Background(), s.Endpoint)
+					slog.Warn("push endpoint rejected", "provider", provider)
 					continue
 				}
 				resp, err := webpush.SendNotification(j.payload, &webpush.Subscription{Endpoint: s.Endpoint, Keys: webpush.Keys{P256dh: s.P256DH, Auth: s.Auth}}, &p.options)
 				if err != nil {
+					// Network errors may include the endpoint's secret subscription token.
+					slog.Error("push delivery failed", "provider", provider, "error_type", fmt.Sprintf("%T", err))
 					continue
 				}
 				resp.Body.Close()
-				if resp.StatusCode == 404 || resp.StatusCode == 410 {
-					_ = p.repo.DeletePushSubscription(context.Background(), s.Endpoint)
+				if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					slog.Warn("push provider rejected delivery", "provider", provider, "status", resp.StatusCode)
+				}
+				if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+					if err := p.repo.DeletePushSubscription(context.Background(), s.Endpoint); err != nil {
+						slog.Error("push subscription cleanup failed", "provider", provider, "status", resp.StatusCode, "error_type", fmt.Sprintf("%T", err))
+					}
 				}
 			}
 		}

@@ -22,7 +22,13 @@ Frontend mendengarkan port 18472. Backend memakai port 18473 di jaringan Docker
 
 ## Web Push notifications
 
-Generate VAPID credentials once with `docker compose run --rm app generate-vapid-keys`, then place the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` plus a `VAPID_SUBJECT` such as `mailto:admin@example.com` in `.env`. Set all three together; leaving any value out disables push configuration. Production subject URLs must use HTTPS or `mailto:`.
+Generate VAPID credentials once with `docker compose run --rm app generate-vapid-keys`, then place the printed `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` plus a `VAPID_SUBJECT` such as `mailto:admin@example.com` in `.env`. Set all three together; leaving all three empty disables push, while a partial configuration fails startup. Production subject URLs must use HTTPS or `mailto:`. Keep existing keys: replacing them invalidates existing browser subscriptions.
+
+After changing `.env`, recreate the app with `docker compose up -d --no-deps --force-recreate app`; restarting an existing container does not reload its environment. After deploying code changes, use `docker compose up -d --build app web`. Neither command removes database or upload volumes.
+
+Browser permission alone does not establish delivery. The authenticated `GET /api/v1/push/config` must return `enabled: true`, enabling notifications must complete `PUT /api/v1/push/subscription` with status 204, and the recipient must have an active subscription. Send a new message from another account: the author is excluded. Two accounts sharing one browser profile cannot retain separate subscriptions; use separate browser profiles or devices.
+
+Startup logs report `web push configuration` with `enabled`. Delivery failures report provider host and HTTP status without subscription endpoints or keys. A 401/403 requires checking the configured VAPID identity; 404/410 removes an expired subscription, so enable notifications again. Temporary network/DNS failures retain subscriptions but do not retry the message. Provider acceptance is not proof of an OS notification: also check browser/site notification settings, OS notification permissions, and Do Not Disturb. Push expiry is 60 seconds.
 
 ## Konfigurasi sementara
 

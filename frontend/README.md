@@ -311,4 +311,13 @@ Pemberitahuan saat aplikasi tertutup memakai Web Push dan memerlukan VAPID pada 
 
 Pengguna harus menekan **Aktifkan notifikasi** setelah login. Browser meminta izin hanya dari tindakan itu. Origin production harus HTTPS; `localhost` dapat dipakai untuk pengujian. Isi notifikasi generik dan tidak memuat teks pesan atau nama mesin. Menekan notifikasi membuka percakapan mesin terkait.
 
+Jika browser sudah mengizinkan notifikasi tetapi pesan tidak muncul:
+
+1. Izin browser bukan subscription. Pengiriman memerlukan subscription browser yang tersimpan untuk akun aktif di backend. Status **Notifikasi aktif untuk sesi akun ini** baru muncul setelah penyimpanan berhasil; izin `granted` saja tidak cukup.
+2. Periksa `GET /api/v1/push/config` pada sesi login. Jika `enabled` bernilai `false`, pastikan ketiga variabel VAPID terisi pada proses/container backend yang berjalan, bukan hanya pada file `.env`. Nilai runtime kosong menonaktifkan pengiriman walaupun browser sudah memberi izin. Setelah konfigurasi deployment diperbaiki dan backend dimulai ulang, tekan **Periksa lagi**, lalu **Aktifkan notifikasi** bila status mati.
+3. Setelah pasangan kunci VAPID diganti, buka ulang aplikasi. Frontend melepas subscription dengan kunci lama dan menampilkan status mati; tekan **Aktifkan notifikasi** untuk membuat subscription dengan kunci baru. Jangan menganggap izin browser yang masih tersimpan berarti subscription lama dapat dipakai.
+4. Jika status aktif tetapi perangkat tetap diam, periksa izin notifikasi sistem, mode jangan ganggu, koneksi, dan dukungan Web Push perangkat. Pada iPhone/iPad, buka aplikasi yang sudah dipasang ke Layar Utama. Pesan dari backend membawa URL `/machines/{id}` dan tag unik `message-{uuid}`; worker hanya membuka tujuan mesin pada origin aplikasi.
+
+Regresi frontend terfokus, dari direktori `frontend`: `npm test -- src/lib/push.test.js src/lib/sw.test.js`. Tes memakai mock API/browser dan worker terisolasi; bukan bukti pengiriman provider nyata.
+
 Web Push bergantung pada dukungan browser/platform dan provider push browser. Pengiriman ke provider eksternal serta tampilan lock-screen perangkat harus diuji pada deployment dengan kunci nyata; test lokal hanya membuktikan konfigurasi, persistensi subscription, enkripsi backend, dan Service Worker.

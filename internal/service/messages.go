@@ -63,8 +63,14 @@ func (s *Logbooks) CreateMessage(ctx context.Context, user domain.User, machineI
 	created = withMessagePhotoURLs(created)
 	s.publishMessage(MessageEvent{Type: "created", MachineID: machineID, MessageID: created.ID, Message: &created})
 	if s.push != nil {
-		if ids, fanoutErr := s.repo.ActiveUserIDs(ctx, user.ID); fanoutErr == nil {
-			_ = s.push.EnqueueUsers(ids, user.ID, map[string]any{"message_id": created.ID, "machine_id": machineID})
+		ids, fanoutErr := s.repo.ActiveUserIDs(ctx, user.ID)
+		if fanoutErr != nil {
+			s.logger.Error("push recipient lookup failed")
+		} else if err := s.push.EnqueueUsers(ids, user.ID, map[string]string{
+			"url": fmt.Sprintf("/machines/%d", machineID),
+			"tag": "message-" + created.ID,
+		}); err != nil {
+			s.logger.Error("push enqueue failed", "error", err)
 		}
 	}
 	return created, nil
