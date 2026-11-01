@@ -9,7 +9,7 @@ async function login(page) {
 }
 
 test("cookie session survives reload and browser restart, logout persists", async ({ browser, baseURL }) => {
-  const original = await browser.newContext({ baseURL });
+  const original = await browser.newContext({ baseURL, permissions: ["notifications"] });
   let restarted;
   try {
     const page = await original.newPage();
@@ -23,7 +23,7 @@ test("cookie session survives reload and browser restart, logout persists", asyn
     expect(await page.evaluate(() => sessionStorage.getItem("machine-logbook-session"))).toBeNull();
     expect(state.origins.flatMap((origin) => origin.localStorage).some((item) => item.name === "machine-logbook-session")).toBe(false);
     await original.close();
-    restarted = await browser.newContext({ baseURL, storageState: state });
+    restarted = await browser.newContext({ baseURL, storageState: state, permissions: ["notifications"] });
     const restored = await restarted.newPage();
     await restored.goto("/");
     await expect(restored.getByRole("heading", { name: "Pilih mesin", exact: true })).toBeVisible();

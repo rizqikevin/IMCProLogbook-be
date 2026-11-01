@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import { ErrorNotice, Icon } from "./common";
 import { MessageDrafts } from "./MessageDrafts";
 import { ThemeToggle } from "../theme";
+import PushPrompt from "./PushPrompt";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -23,6 +24,7 @@ export default function Layout() {
   }
   return (
     <>
+      <PushPrompt key={user.id} userId={user.id} />
       <a className="skip-link" href="#main">
         Lewati ke konten
       </a>

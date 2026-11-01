@@ -39,6 +39,27 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("requests default permission synchronously from explicit enable", async () => {
+  Notification.permission = "default";
+  const result = syncPush(1, true);
+  expect(Notification.requestPermission).toHaveBeenCalledOnce();
+  await expect(result).resolves.toBe("on");
+});
+
+it("establishes granted push without requesting permission again", async () => {
+  worker.pushManager.getSubscription.mockResolvedValue(null);
+  await expect(syncPush(1, true)).resolves.toBe("on");
+  expect(Notification.requestPermission).not.toHaveBeenCalled();
+  expect(worker.pushManager.subscribe).toHaveBeenCalledOnce();
+});
+
+it("never re-prompts denied permission", async () => {
+  Notification.permission = "denied";
+  await expect(syncPush(1, true)).resolves.toBe("denied");
+  expect(Notification.requestPermission).not.toHaveBeenCalled();
+  expect(worker.pushManager.subscribe).not.toHaveBeenCalled();
+});
+
 it("reports disabled despite granted permission when runtime VAPID is absent", async () => {
   request.mockResolvedValue({ enabled: false, public_key: "" });
   await expect(syncPush(1, true)).resolves.toBe("disabled");

@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -83,7 +84,18 @@ func run() error {
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	books := service.NewLogbooks(repo, store, service.Limits{MaxPhotosPerUpload: 20, MaxPhotosPerLogbook: 100, MaxPhotoBytes: 10 << 20, MaxImagePixels: 40_000_000}, logger)
-	server := &http.Server{Addr: "127.0.0.1:18081", Handler: httpapi.New(books, auth, httpapi.Options{SocketContext: ctx, Logger: logger, Ready: pool.Ping}), ReadHeaderTimeout: 5 * time.Second}
+	options := httpapi.Options{SocketContext: ctx, Logger: logger, Ready: pool.Ping}
+	if os.Getenv("TEST_PUSH_ENABLED") == "1" {
+		privateKey, publicKey, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			return err
+		}
+		push := service.NewPushService(repo, service.PushConfig{VAPIDPublicKey: publicKey, VAPIDPrivateKey: privateKey, Subscriber: "mailto:test@example.com"})
+		defer push.Close()
+		options.Push = push
+		options.PushPublicKey = publicKey
+	}
+	server := &http.Server{Addr: "127.0.0.1:18081", Handler: httpapi.New(books, auth, options), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)

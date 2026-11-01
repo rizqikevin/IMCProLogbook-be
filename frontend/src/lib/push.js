@@ -35,7 +35,7 @@ async function registration() {
 export function syncPush(userId, enable = false) {
   const generation = getSessionGeneration();
   // Permission must start synchronously inside the user's click, before network work.
-  const permission = enable ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+  const permission = enable && Notification.permission === "default" ? Notification.requestPermission() : Promise.resolve(Notification.permission);
   return serialized(async () => {
     const allowed = await permission;
     const current = () => {
