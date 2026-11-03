@@ -309,15 +309,27 @@ func (r *Repository) ListPhotoMarkers(ctx context.Context, photoID, parentID, pa
 }
 func (r *Repository) AddPhotoMarker(ctx context.Context, photoID, parentID, parentKind string, marker domain.PhotoMarker, role string) (domain.PhotoMarker, error) {
 	table, parentColumn := "logbook_photos", "logbook_id"
-	if parentKind == "message" { table, parentColumn = "message_photos", "message_id" } else if parentKind != "logbook" { return marker, domain.ErrNotFound }
+	if parentKind == "message" {
+		table, parentColumn = "message_photos", "message_id"
+	} else if parentKind != "logbook" {
+		return marker, domain.ErrNotFound
+	}
 	tx, err := r.pool.Begin(ctx)
-	if err != nil { return marker, err }
+	if err != nil {
+		return marker, err
+	}
 	defer tx.Rollback(ctx)
 	var uploader string
-	if err := tx.QueryRow(ctx, `SELECT uploaded_by::text FROM `+table+` WHERE id=$1::uuid AND `+parentColumn+`=$2::uuid FOR UPDATE`, photoID, parentID).Scan(&uploader); err != nil { return marker, mapError(err) }
-	if role != "admin" && uploader != marker.CreatedBy { return marker, domain.ErrForbidden }
+	if err := tx.QueryRow(ctx, `SELECT uploaded_by::text FROM `+table+` WHERE id=$1::uuid AND `+parentColumn+`=$2::uuid FOR UPDATE`, photoID, parentID).Scan(&uploader); err != nil {
+		return marker, mapError(err)
+	}
+	if role != "admin" && uploader != marker.CreatedBy {
+		return marker, domain.ErrForbidden
+	}
 	err = tx.QueryRow(ctx, `INSERT INTO photo_markers(id, photo_id, x, y, created_by) VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid) RETURNING created_at`, marker.ID, photoID, marker.X, marker.Y, marker.CreatedBy).Scan(&marker.CreatedAt)
-	if err != nil { return marker, mapError(err) }
+	if err != nil {
+		return marker, mapError(err)
+	}
 	err = tx.Commit(ctx)
 	return marker, mapError(err)
 }

@@ -212,7 +212,7 @@ func TestRotatePhotoAuthorizationAndFailures(t *testing.T) {
 						t.Fatalf("result: %+v %v", photo, err)
 					}
 				} else {
-                    if err == nil || !reflect.DeepEqual(repo.photo, original) {
+					if err == nil || !reflect.DeepEqual(repo.photo, original) {
 						t.Fatalf("failure changed original: %+v %v", repo.photo, err)
 					}
 					if stage == "forbidden" && !errors.Is(err, domain.ErrForbidden) {
