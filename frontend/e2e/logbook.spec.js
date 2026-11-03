@@ -57,6 +57,10 @@ async function photo(page) {
   });
   return { name: "test.png", mimeType: "image/png", buffer: Buffer.from(data, "base64") };
 }
+function wsData(frame) {
+  const d = typeof frame === "object" && frame !== null && "payload" in frame ? frame.payload : frame;
+  return typeof d === "string" ? JSON.parse(d) : d;
+}
 async function send(page) {
   let message;
   if (await page.locator(".composer-photos img").count()) {
@@ -70,19 +74,19 @@ async function send(page) {
     const socket = messageSockets.get(page);
     const text = await page.locator("#message-text").inputValue();
     let requestId;
-    const sent = socket.waitForEvent("framesent", (payload) => {
-      const event = JSON.parse(String(payload));
+    const sent = socket.waitForEvent("framesent", (frame) => {
+      const event = wsData(frame);
       if (event.type !== "send" || event.text !== text) return false;
       requestId = event.request_id;
       return true;
     });
-    const received = socket.waitForEvent("framereceived", (payload) => {
-      const event = JSON.parse(String(payload));
+    const received = socket.waitForEvent("framereceived", (frame) => {
+      const event = wsData(frame);
       return (event.type === "ack" || event.type === "error") && event.request_id === requestId;
     });
     await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
     await sent;
-    const event = JSON.parse(String((await received).payload));
+    const event = wsData(await received);
     expect(event.type).toBe("ack");
     message = event.message;
   }
