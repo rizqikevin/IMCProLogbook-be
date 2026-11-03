@@ -63,7 +63,7 @@ function wsData(frame) {
 }
 async function send(page) {
   let message;
-  if (await page.locator(".composer-photos img").count()) {
+  if (await page.getByAltText(/Pratinjau foto/).count()) {
     const response = page.waitForResponse((r) => /\/machines\/\d+\/messages$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
     await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
     const result = await response;
@@ -144,6 +144,7 @@ test("stored photo rotation changes pixels, thumbnails, downloads and reload", a
   await login(page);
   await choose(page);
   await page.locator("#message-photos").setInputFiles(await photo(page));
+  await expect(page.getByAltText("Pratinjau foto 1", { exact: true })).toBeVisible();
   const message = await send(page);
   const thumbnail = page.locator(".message-entry").last().locator(".message-photo img");
   const open = page.locator(".message-entry").last().locator(".message-photo-open");
@@ -160,14 +161,31 @@ test("stored photo rotation changes pixels, thumbnails, downloads and reload", a
   const before = await pixels(image);
   const response = page.waitForResponse((r) => r.url().endsWith("/rotate") && r.request().method() === "POST");
   const rotate = page.getByRole("button", { name: /Putar foto/ });
-  await rotate.click();
+  let rotationRequests = 0;
+  page.on("request", (request) => { if (request.url().endsWith("/rotate")) rotationRequests++; });
+  const clockTime = new Date();
+  await page.clock.install({ time: clockTime });
+  await page.clock.pauseAt(clockTime);
+  await rotate.evaluate((button) => { for (let n = 0; n < 4; n++) button.click(); });
+  await page.clock.runFor(600);
+  expect(rotationRequests).toBe(0);
+  await rotate.evaluate((button) => { for (let n = 0; n < 5; n++) button.click(); });
+  await page.clock.runFor(499);
+  expect(rotationRequests).toBe(0);
+  await expect(image.locator("..")).toHaveCSS("transform", "matrix(0, 1, -1, 0, 0, 0)");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.clock.runFor(1);
   const result = await response;
+  await page.clock.resume();
   expect(result.request().postDataJSON()).toEqual({ degrees: 90, sha256: message.photos[0].sha256 });
   expect(result.status()).toBe(200);
   const updated = await result.json();
   expect(updated.sha256).not.toBe(message.photos[0].sha256);
   expect(updated.url).toContain(updated.sha256);
-  await expect(rotate).toBeEnabled();
+  await expect(page.getByText("Menyimpan rotasi foto…", { exact: true })).toHaveCount(0);
+  expect(rotationRequests).toBe(1);
+  await expect.poll(() => image.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
   const after = await pixels(image);
   expect(after).not.toEqual(before);
   const expected = new Array(before.length);
@@ -188,10 +206,11 @@ test("stored photo rotation changes pixels, thumbnails, downloads and reload", a
   expect(await pixels(image)).toEqual(after);
 });
 
-test("rotation locks duplicate writes and preserves photo on failure", async ({ page }) => {
+test("rotation queues concurrent clicks and preserves retry after failure", async ({ page }) => {
   await login(page);
   await choose(page);
   await page.locator("#message-photos").setInputFiles(await photo(page));
+  await expect(page.getByAltText("Pratinjau foto 1", { exact: true })).toBeVisible();
   await send(page);
   await page.locator(".message-entry").last().locator(".message-photo-open").click();
   const image = page.locator(".photo-dialog-image-layer img");
@@ -207,7 +226,8 @@ test("rotation locks duplicate writes and preserves photo on failure", async ({ 
   });
   const rotate = page.getByRole("button", { name: /Putar foto/ });
   await rotate.click();
-  await expect(rotate).toBeDisabled();
+  await expect.poll(() => calls).toBe(1);
+  await expect(rotate).toBeEnabled();
   await page.keyboard.press("r");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -217,6 +237,13 @@ test("rotation locks duplicate writes and preserves photo on failure", async ({ 
   await expect(rotate).toBeEnabled();
   expect(calls).toBe(1);
   await expect(image).toHaveAttribute("src", original);
+  await page.unroute("**/rotate");
+  const retried = page.waitForResponse((r) => r.url().endsWith("/rotate"));
+  await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
+  expect((await retried).request().postDataJSON().degrees).toBe(180);
+  await expect(page.getByText("Menyimpan rotasi foto…", { exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("inline coating machine is selectable with shared coating photo", async ({ page }) => {

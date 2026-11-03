@@ -117,10 +117,16 @@ Escape menutup penampil. Ukuran dan posisi kembali ke awal saat foto berganti.
 
 Tombol **Putar foto** atau **R** menyimpan putaran 90° searah jarum jam;
 **Shift + R** atau Shift + klik memutar berlawanan arah. Hanya pengunggah dan admin
-dapat memutar. Rotasi mengubah piksel file tersimpan, bukan tampilan CSS. Thumbnail,
-unduhan, pembukaan ulang, dan reload memakai hasil baru. **Atur ulang** hanya
-mengembalikan zoom/pan, bukan membatalkan rotasi tersimpan. Selama penyimpanan,
-rotasi, marker, navigasi, dan penutupan dialog dikunci; kegagalan ditampilkan.
+dapat memutar. Pratinjau langsung berubah; penyimpanan menunggu 500 ms setelah
+klik terakhir dan menggabungkan putaran. Putaran bersih 0°/360° tidak mengirim
+permintaan. Rotasi mengubah piksel file tersimpan, bukan hanya tampilan CSS.
+Thumbnail, unduhan, pembukaan ulang, dan reload memakai hasil baru. **Atur ulang**
+hanya mengembalikan zoom/pan. Klik saat penyimpanan berlangsung tetap diterima
+dan disimpan berurutan memakai hash respons terakhir. Marker, navigasi, dan
+penutupan dialog dikunci sampai antrean selesai. Kegagalan mempertahankan
+pratinjau belum tersimpan; **Coba lagi** mengirim ulang tanpa menambah putaran.
+Keluar halaman memberi peringatan saat perubahan belum tersimpan; pelepasan
+komponen membersihkan timer dan mengirim antrean yang belum gagal.
 Klien mengirim `POST <pathname photo.url>/rotate` tanpa query versi, dengan
 `{degrees: 90|-90|180, sha256: <hash saat ini>}`. Respons Photo mengganti metadata
 dan URL versi SHA; konflik hash meminta reload sebelum mencoba lagi. JPEG/PNG

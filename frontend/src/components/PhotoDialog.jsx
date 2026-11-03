@@ -9,11 +9,12 @@ import {
 import { usePhotoMarkers } from "../hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { rotatePhoto } from "../lib/api";
+import { createPhotoRotation } from "../lib/photoRotation";
 import { useAuth } from "../auth";
 
 const MAX_ZOOM = 4;
 
-function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRotate, saving }) {
+function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRotate, rotation = 0 }) {
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const pointers = useRef(new Map());
@@ -31,12 +32,15 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
     const stage = stageRef.current;
     const image = imageRef.current;
     if (!stage || !image || !image.naturalWidth) return;
-    const fit = Math.min(1, stage.clientWidth / image.naturalWidth, stage.clientHeight / image.naturalHeight);
+    const sideways = rotation % 180 !== 0;
+    const naturalWidth = sideways ? image.naturalHeight : image.naturalWidth;
+    const naturalHeight = sideways ? image.naturalWidth : image.naturalHeight;
+    const fit = Math.min(1, stage.clientWidth / naturalWidth, stage.clientHeight / naturalHeight);
     const width = image.naturalWidth * fit;
     const height = image.naturalHeight * fit;
     setImageSize({ width, height });
-    const w = width;
-    const h = height;
+    const w = sideways ? height : width;
+    const h = sideways ? width : height;
     const scale = Math.min(MAX_ZOOM, Math.max(1, next.scale));
     const maxX = Math.max(0, (w * scale - stage.clientWidth) / 2);
     const maxY = Math.max(0, (h * scale - stage.clientHeight) / 2);
@@ -53,7 +57,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
   }
 
   function rotate(direction = 1) {
-    if (ready && !saving && onRotate) onRotate(direction * 90);
+    if (ready && onRotate) onRotate(direction * 90);
   }
 
   function reset() {
@@ -63,7 +67,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
     const observer = new ResizeObserver(() => updateView(viewRef.current));
     observer.observe(stageRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [rotation]);
 
   function pointerDown(event) {
     if (!ready || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -182,7 +186,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [ready, saving, onRotate]);
+  }, [ready, onRotate]);
   function toggleMarker(event) {
     if (!markerMode || !ready || !onAddMarker || event.target.closest("button")) return;
     const image = imageRef.current;
@@ -216,7 +220,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
           style={{
             width: imageSize.width || undefined,
             height: imageSize.height || undefined,
-            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale}) rotate(${rotation}deg)`,
             transition: dragging ? "none" : "transform 0.15s ease",
             visibility: ready ? "visible" : "hidden",
           }}
@@ -307,7 +311,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRo
           className="photo-viewer-control"
           aria-label="Putar foto 90 derajat searah jarum jam"
           title="Putar foto 90° (R)"
-          disabled={!ready || saving || !onRotate}
+          disabled={!ready || !onRotate}
           onClick={(event) => rotate(event.shiftKey ? -1 : 1)}
         >
           <Icon name="rotate" />
@@ -332,34 +336,44 @@ export default function PhotoDialog({
   const canRotate = Boolean(photo?.sha256 && (user?.role === "admin" || (user?.id && String(photo.uploaded_by) === String(user.id))));
   const client = useQueryClient();
   const pending = useRef(false);
-  const [saving, setSaving] = useState(false);
-  const [rotationError, setRotationError] = useState(null);
-
-  useEffect(() => { setRotationError(null); }, [photo?.id]);
-
-  async function saveRotation(degrees) {
-    if (pending.current || markerQuery.saving || !canRotate) return;
-    pending.current = true;
-    setSaving(true);
-    setRotationError(null);
-    try {
-      const updated = await rotatePhoto(photo, degrees);
-      client.setQueriesData({ queryKey: ["logbooks"] }, (book) => book?.photos ? {
-        ...book, photos: book.photos.map((item) => item.id === updated.id ? updated : item),
-      } : book);
-      onRotated?.(updated);
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["photos"] }),
-        client.invalidateQueries({ queryKey: ["photo-markers"] }),
-        client.invalidateQueries({ queryKey: ["logbooks"] }),
-      ]);
-    } catch (error) {
-      setRotationError(error);
-    } finally {
-      pending.current = false;
-      setSaving(false);
-    }
+  const [rotation, setRotation] = useState({ preview: 0, busy: false, error: null });
+  const saving = rotation.busy;
+  const rotationQueue = useRef(null);
+  const savedRef = useRef(null);
+  savedRef.current = (updated) => {
+    if (updated.sha256 === photo?.sha256) return;
+    client.setQueriesData({ queryKey: ["logbooks"] }, (book) => book?.photos ? {
+      ...book, photos: book.photos.map((item) => item.id === updated.id ? updated : item),
+    } : book);
+    onRotated?.(updated);
+    client.invalidateQueries({ queryKey: ["photos"] });
+    client.invalidateQueries({ queryKey: ["photo-markers"] });
+    client.invalidateQueries({ queryKey: ["logbooks"] });
+  };
+  useEffect(() => {
+    const queue = createPhotoRotation({
+      photo,
+      save: rotatePhoto,
+      onChange: (state) => { pending.current = state.busy; setRotation(state); },
+      onSaved: (updated) => savedRef.current(updated),
+    });
+    rotationQueue.current = queue;
+    pending.current = false;
+    setRotation({ preview: 0, busy: false, error: null });
+    return () => queue.dispose();
+  }, [photo?.id]);
+  function saveRotation(degrees) {
+    if (!markerQuery.saving && canRotate) rotationQueue.current.rotate(degrees);
   }
+  useEffect(() => {
+    function beforeUnload(event) {
+      if (!pending.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, []);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const historyEntry = useRef(null);
@@ -449,14 +463,14 @@ export default function PhotoDialog({
           markers={markerQuery.markers}
           onAddMarker={markerQuery.canEdit && !markerQuery.saving && !saving ? markerQuery.add : undefined}
           onRotate={canRotate && !markerQuery.saving ? saveRotation : undefined}
-          saving={saving}
+          rotation={rotation.preview}
         />
       ) : null}
       {markerQuery.loading && <Loading>Memuat marker…</Loading>}
       {markerQuery.saving && <p role="status">Menyimpan marker…</p>}
       <ErrorNotice error={markerQuery.error} onRetry={markerQuery.retry} />
       {saving && <p role="status">Menyimpan rotasi foto…</p>}
-      <ErrorNotice error={rotationError} />
+      <ErrorNotice error={rotation.error} onRetry={() => rotationQueue.current.retry()} />
       {caption && <p className="photo-dialog-caption">{caption}</p>}
       <div className="photo-dialog-nav">
         <div className="photo-dialog-pager">

@@ -1743,6 +1743,7 @@
       border: 0;
       pointer-events: none;
     }
+    .photo-dialog .notice { position: relative; z-index: 2; }
     .photo-dialog .photo-dialog-pager { width: 100%; justify-content: space-between; }
     .photo-dialog .photo-viewer-control { background: #20354e; color: #fff; pointer-events: auto; }
     .photo-dialog .photo-viewer-control:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
