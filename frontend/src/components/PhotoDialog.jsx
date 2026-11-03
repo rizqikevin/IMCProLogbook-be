@@ -7,18 +7,19 @@ import {
   SkeletonPhotoDialog,
 } from "./common";
 import { usePhotoMarkers } from "../hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { rotatePhoto } from "../lib/api";
+import { useAuth } from "../auth";
 
 const MAX_ZOOM = 4;
 
-function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
+function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker, onRotate, saving }) {
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const pointers = useRef(new Map());
   const viewRef = useRef({ scale: 1, x: 0, y: 0 });
   const [view, setView] = useState(viewRef.current);
-  const [rotation, setRotation] = useState(0);
   const [markerMode, setMarkerMode] = useState(false);
-  const rotationRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -26,7 +27,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
   const gesture = useRef(null);
   const [markerCursor, setMarkerCursor] = useState({ x: 0.5, y: 0.5 });
 
-  function updateView(next, nextRotation = rotationRef.current) {
+  function updateView(next) {
     const stage = stageRef.current;
     const image = imageRef.current;
     if (!stage || !image || !image.naturalWidth) return;
@@ -34,9 +35,8 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
     const width = image.naturalWidth * fit;
     const height = image.naturalHeight * fit;
     setImageSize({ width, height });
-    const isTransposed = nextRotation % 180 !== 0;
-    const w = isTransposed ? height : width;
-    const h = isTransposed ? width : height;
+    const w = width;
+    const h = height;
     const scale = Math.min(MAX_ZOOM, Math.max(1, next.scale));
     const maxX = Math.max(0, (w * scale - stage.clientWidth) / 2);
     const maxY = Math.max(0, (h * scale - stage.clientHeight) / 2);
@@ -53,20 +53,11 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
   }
 
   function rotate(direction = 1) {
-    const next = (rotationRef.current + direction * 90 + 360) % 360;
-    rotationRef.current = next;
-    setRotation(next);
-    updateView(viewRef.current, next);
+    if (ready && !saving && onRotate) onRotate(direction * 90);
   }
 
   function reset() {
-    if (view.scale !== 1 || view.x !== 0 || view.y !== 0) {
-      updateView({ scale: 1, x: 0, y: 0 });
-    } else if (rotationRef.current !== 0) {
-      rotationRef.current = 0;
-      setRotation(0);
-      updateView({ scale: 1, x: 0, y: 0 }, 0);
-    }
+    updateView({ scale: 1, x: 0, y: 0 });
   }
   useEffect(() => {
     const observer = new ResizeObserver(() => updateView(viewRef.current));
@@ -148,8 +139,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
         event.stopPropagation();
         if (directions[event.key]) {
           const [dx, dy] = directions[event.key];
-          const delta = new DOMMatrixReadOnly().rotate(-rotationRef.current).transformPoint(new DOMPoint(dx, dy, 0, 0));
-          setMarkerCursor((point) => ({ x: Math.max(0, Math.min(1, point.x + delta.x)), y: Math.max(0, Math.min(1, point.y + delta.y)) }));
+          setMarkerCursor((point) => ({ x: Math.max(0, Math.min(1, point.x + dx)), y: Math.max(0, Math.min(1, point.y + dy)) }));
         } else onAddMarker(markerCursor);
         return;
       }
@@ -192,7 +182,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [ready]);
+  }, [ready, saving, onRotate]);
   function toggleMarker(event) {
     if (!markerMode || !ready || !onAddMarker || event.target.closest("button")) return;
     const image = imageRef.current;
@@ -226,7 +216,7 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
           style={{
             width: imageSize.width || undefined,
             height: imageSize.height || undefined,
-            transform: `translate(${view.x}px, ${view.y}px) rotate(${rotation}deg) scale(${view.scale})`,
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
             transition: dragging ? "none" : "transform 0.15s ease",
             visibility: ready ? "visible" : "hidden",
           }}
@@ -292,18 +282,9 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
         <button
           type="button"
           className="photo-viewer-control photo-dialog-reset"
-          aria-label="Atur ulang ukuran dan rotasi foto"
-          title={
-            view.scale !== 1
-              ? "Atur ulang ukuran foto (100%)"
-              : rotation !== 0
-                ? "Atur ulang rotasi (0°)"
-                : "Atur ulang"
-          }
-          disabled={
-            !ready ||
-            (view.scale === 1 && view.x === 0 && view.y === 0 && rotation === 0)
-          }
+          aria-label="Atur ulang ukuran foto"
+          title="Atur ulang ukuran foto (100%)"
+          disabled={!ready || (view.scale === 1 && view.x === 0 && view.y === 0)}
           onClick={reset}
         >
           <Icon name="fit" />
@@ -324,13 +305,9 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
         <button
           type="button"
           className="photo-viewer-control"
-          aria-label={
-            rotation
-              ? `Putar foto 90 derajat searah jarum jam (saat ini ${rotation}°)`
-              : "Putar foto 90 derajat searah jarum jam"
-          }
+          aria-label="Putar foto 90 derajat searah jarum jam"
           title="Putar foto 90° (R)"
-          disabled={!ready}
+          disabled={!ready || saving || !onRotate}
           onClick={(event) => rotate(event.shiftKey ? -1 : 1)}
         >
           <Icon name="rotate" />
@@ -348,9 +325,41 @@ function PhotoViewer({ photoUrl, title, onClose, markers = [], onAddMarker }) {
 export default function PhotoDialog({
   title, subtitle, caption, photoUrl, loading = false, error = null, onRetry,
   downloadName, onPrev, onNext, hasPrev = false, hasNext = false, counterText,
-  onClose, markerPhotoUrl,
+  onClose, photo, onRotated,
 }) {
-  const markerQuery = usePhotoMarkers(markerPhotoUrl);
+  const markerQuery = usePhotoMarkers(photo?.url);
+  const { user } = useAuth();
+  const canRotate = Boolean(photo?.sha256 && (user?.role === "admin" || (user?.id && String(photo.uploaded_by) === String(user.id))));
+  const client = useQueryClient();
+  const pending = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [rotationError, setRotationError] = useState(null);
+
+  useEffect(() => { setRotationError(null); }, [photo?.id]);
+
+  async function saveRotation(degrees) {
+    if (pending.current || markerQuery.saving || !canRotate) return;
+    pending.current = true;
+    setSaving(true);
+    setRotationError(null);
+    try {
+      const updated = await rotatePhoto(photo, degrees);
+      client.setQueriesData({ queryKey: ["logbooks"] }, (book) => book?.photos ? {
+        ...book, photos: book.photos.map((item) => item.id === updated.id ? updated : item),
+      } : book);
+      onRotated?.(updated);
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["photos"] }),
+        client.invalidateQueries({ queryKey: ["photo-markers"] }),
+        client.invalidateQueries({ queryKey: ["logbooks"] }),
+      ]);
+    } catch (error) {
+      setRotationError(error);
+    } finally {
+      pending.current = false;
+      setSaving(false);
+    }
+  }
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const historyEntry = useRef(null);
@@ -371,6 +380,10 @@ export default function PhotoDialog({
       );
     });
     function handleBack() {
+      if (pending.current) {
+        window.history.pushState({ ...window.history.state, photoViewer: marker }, "");
+        return;
+      }
       historyEntry.current = null;
       closeRef.current();
     }
@@ -390,6 +403,7 @@ export default function PhotoDialog({
   }, []);
 
   function closeViewer() {
+    if (pending.current) return;
     if (
       historyEntry.current &&
       window.history.state?.photoViewer === historyEntry.current
@@ -401,6 +415,7 @@ export default function PhotoDialog({
   }
   useEffect(() => {
     function handleKeyDown(event) {
+      if (pending.current || event.shiftKey) return;
       if (event.key === "ArrowLeft" && hasPrev && onPrev) {
         event.preventDefault();
         onPrev();
@@ -414,7 +429,7 @@ export default function PhotoDialog({
   }, [hasPrev, hasNext, onPrev, onNext]);
 
   return (
-    <Dialog title={title} className="photo-dialog" onClose={closeViewer}>
+    <Dialog title={title} className="photo-dialog" onClose={closeViewer} dismissible={!saving}>
       <p className="photo-dialog-exit-hint">
         Gunakan tombol Kembali atau Escape untuk menutup foto.
       </p>
@@ -432,19 +447,23 @@ export default function PhotoDialog({
           title={title}
           onClose={closeViewer}
           markers={markerQuery.markers}
-          onAddMarker={markerQuery.canEdit && !markerQuery.saving ? markerQuery.add : undefined}
+          onAddMarker={markerQuery.canEdit && !markerQuery.saving && !saving ? markerQuery.add : undefined}
+          onRotate={canRotate && !markerQuery.saving ? saveRotation : undefined}
+          saving={saving}
         />
       ) : null}
       {markerQuery.loading && <Loading>Memuat marker…</Loading>}
       {markerQuery.saving && <p role="status">Menyimpan marker…</p>}
       <ErrorNotice error={markerQuery.error} onRetry={markerQuery.retry} />
+      {saving && <p role="status">Menyimpan rotasi foto…</p>}
+      <ErrorNotice error={rotationError} />
       {caption && <p className="photo-dialog-caption">{caption}</p>}
       <div className="photo-dialog-nav">
         <div className="photo-dialog-pager">
           <button
             type="button"
             className="photo-viewer-control"
-            disabled={!hasPrev || !onPrev}
+            disabled={saving || !hasPrev || !onPrev}
             onClick={onPrev}
             aria-label="Foto sebelumnya"
             title="Foto sebelumnya"
@@ -459,7 +478,7 @@ export default function PhotoDialog({
           <button
             type="button"
             className="photo-viewer-control"
-            disabled={!hasNext || !onNext}
+            disabled={saving || !hasNext || !onNext}
             onClick={onNext}
             aria-label="Foto berikutnya"
             title="Foto berikutnya"

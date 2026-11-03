@@ -3,7 +3,10 @@ import { usePhotoUrl } from "../hooks";
 import { ErrorNotice, Icon, Loading } from "./common";
 import PhotoDialog from "./PhotoDialog";
 
-export default function MessagePhoto({ photo, onOpen }) {
+export default function MessagePhoto({ photo: sourcePhoto, onOpen }) {
+  const [rotatedPhoto, setRotatedPhoto] = useState(null);
+  const photo = rotatedPhoto?.id === sourcePhoto.id && rotatedPhoto.sourceSha === sourcePhoto.sha256
+    ? rotatedPhoto.photo : sourcePhoto;
   const containerRef = useRef(null);
   const [isVisible, setIsVisible] = useState(
     () => typeof IntersectionObserver === "undefined",
@@ -77,7 +80,8 @@ export default function MessagePhoto({ photo, onOpen }) {
           title={`Foto ${photo.page_number}`}
           photoUrl={url}
           counterText={`Foto ${photo.page_number}`}
-          markerPhotoUrl={photo.url}
+          photo={photo}
+          onRotated={(updated) => setRotatedPhoto({ id: sourcePhoto.id, sourceSha: sourcePhoto.sha256, photo: updated })}
           downloadName={`foto-${photo.id}.${photo.content_type?.split("/")[1] || "jpg"}`}
           onClose={() => setOpen(false)}
         />

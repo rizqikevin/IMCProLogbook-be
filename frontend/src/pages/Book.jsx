@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ShiftNavigation from "../components/ShiftNavigation";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import { useBook, usePhoto } from "../hooks";
+import { useBook, usePhotoUrl } from "../hooks";
 import { queryClient, queryKeys } from "../queryClient";
 import { request } from "../lib/api";
 import { formatBytes, formatDate, formatTime } from "../lib/format";
@@ -24,7 +24,7 @@ export default function Book() {
   const navigate = useNavigate();
   const selected =
     book?.photos?.[Math.min(index, (book?.photos?.length || 1) - 1)];
-  const photo = usePhoto(id, selected?.id);
+  const photo = usePhotoUrl(selected?.url);
   async function remove() {
     setDeleting(true);
     setDeleteError(null);
@@ -209,7 +209,7 @@ export default function Book() {
               subtitle={`${formatDate(book.log_date)}, ${book.shift.name}`}
               counterText={`Halaman ${selected?.page_number || index + 1} dari ${book.photo_count}`}
               photoUrl={photo.url}
-              markerPhotoUrl={selected?.url}
+              photo={selected}
               loading={photo.loading}
               error={photo.error}
               onRetry={photo.retry}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { connectMessages, queryString, request, requestPhoto } from "./lib/api";
+import { connectMessages, photoPath, queryString, request, requestPhoto } from "./lib/api";
 import { queryKeys } from "./queryClient";
 
 export function useMessageSocket(machineId, onEvent) {
@@ -79,37 +79,6 @@ export function useBook(id) {
   };
 }
 
-export function usePhoto(bookId, photoId) {
-  const enabled = Boolean(bookId && photoId);
-  const query = useQuery({
-    queryKey: queryKeys.photo(bookId, photoId),
-    queryFn: ({ signal }) =>
-      request(
-        `/logbooks/${encodeURIComponent(bookId)}/photos/${encodeURIComponent(photoId)}`,
-        { signal, blob: true },
-      ),
-    enabled,
-    staleTime: Infinity,
-  });
-
-  const url = useMemo(() => {
-    if (!query.data) return "";
-    return URL.createObjectURL(query.data);
-  }, [query.data]);
-
-  useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [url]);
-
-  return {
-    url,
-    loading: enabled && query.isLoading,
-    error: query.error ?? null,
-    retry: () => query.refetch(),
-  };
-}
 
 export function usePhotoUrl(url) {
   const enabled = Boolean(url);
@@ -140,7 +109,7 @@ export function usePhotoUrl(url) {
 }
 export function usePhotoMarkers(photoUrl) {
   const enabled = Boolean(photoUrl?.startsWith("/api/v1/"));
-  const endpoint = enabled ? `${photoUrl.slice("/api/v1".length)}/markers` : "";
+  const endpoint = enabled ? `${photoPath(photoUrl)}/markers` : "";
   const client = useQueryClient();
   const queryKey = queryKeys.photoMarkers(photoUrl);
   const query = useQuery({

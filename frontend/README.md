@@ -115,6 +115,24 @@ Fokuskan foto lalu gunakan Shift + tombol panah untuk menggeser lewat keyboard.
 Tombol panah kiri/kanan tanpa Shift tetap membuka foto sebelumnya/berikutnya;
 Escape menutup penampil. Ukuran dan posisi kembali ke awal saat foto berganti.
 
+Tombol **Putar foto** atau **R** menyimpan putaran 90° searah jarum jam;
+**Shift + R** atau Shift + klik memutar berlawanan arah. Hanya pengunggah dan admin
+dapat memutar. Rotasi mengubah piksel file tersimpan, bukan tampilan CSS. Thumbnail,
+unduhan, pembukaan ulang, dan reload memakai hasil baru. **Atur ulang** hanya
+mengembalikan zoom/pan, bukan membatalkan rotasi tersimpan. Selama penyimpanan,
+rotasi, marker, navigasi, dan penutupan dialog dikunci; kegagalan ditampilkan.
+Klien mengirim `POST <pathname photo.url>/rotate` tanpa query versi, dengan
+`{degrees: 90|-90|180, sha256: <hash saat ini>}`. Respons Photo mengganti metadata
+dan URL versi SHA; konflik hash meminta reload sebelum mencoba lagi. JPEG/PNG
+tetap dalam formatnya, sedangkan WebP hasil rotasi disimpan sebagai PNG.
+
+Regresi browser rotasi memakai API nyata dan membandingkan piksel hasil decode,
+thumbnail, hash unduhan, pembukaan ulang, reload, serta posisi marker. Untuk
+storage S3 uji, jalankan harness dengan `TEST_S3_ENDPOINT` loopback,
+`TEST_S3_BUCKET`, dan kredensial AWS. Gunakan bucket uji terisolasi dan bersihkan
+objek bucket setelah pengujian.
+
+
 Tombol **Tandai foto** (lingkaran di sebelah rotasi) mengaktifkan marker titik merah.
 Klik atau ketuk beberapa posisi untuk menyimpannya di server. Marker mengikuti zoom,
 pan, rotasi, dan ukuran layar; muat ulang tetap menampilkan titik tersimpan.

@@ -524,7 +524,14 @@ function MachineConversation({ machine }) {
           caption={activePhoto.messageText || null}
           counterText={`${activeIndex + 1} dari ${allPhotos.length}`}
           photoUrl={viewerPhoto.url}
-          markerPhotoUrl={activePhoto.url}
+          photo={activePhoto}
+          onRotated={(photo) => {
+            const replace = (message) => ({ ...message, photos: message.photos.map((item) => item.id === photo.id ? photo : item) });
+            for (const messages of [liveMessages.current, editedMessages.current]) {
+              for (const [id, message] of messages) messages.set(id, replace(message));
+            }
+            setState((old) => ({ ...old, items: old.items.map(replace) }));
+          }}
           loading={viewerPhoto.loading}
           error={viewerPhoto.error}
           onRetry={viewerPhoto.retry}

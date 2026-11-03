@@ -109,6 +109,25 @@ export function queryString(filters) {
   return query.toString();
 }
 
+export function photoPath(url) {
+  const api = new URL(`${base || window.location.origin}/api/v1/`, window.location.origin);
+  const target = new URL(url, api);
+  if (target.origin !== api.origin || !target.pathname.startsWith("/api/v1/"))
+    throw new ApiError("Alamat foto tidak valid.");
+  return target.pathname.slice(7);
+}
+
+export async function rotatePhoto(photo, degrees) {
+  try {
+    return await request(`${photoPath(photo.url)}/rotate`, {
+      method: "POST", body: { degrees, sha256: photo.sha256 },
+    });
+  } catch (error) {
+    if (error.status === 409) error.message = "Foto sudah berubah. Muat ulang halaman sebelum memutar lagi.";
+    throw error;
+  }
+}
+
 export function requestPhoto(url, signal) {
   const api = new URL(`${base || window.location.origin}/api/v1/`, window.location.origin);
   const target = new URL(url, api);

@@ -74,19 +74,23 @@ test("photo markers persist through reload and transformed placement", async ({ 
   let box = await image.boundingBox();
   await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.75);
   await expect(page.locator(".photo-dialog-marker")).toHaveCount(1);
+  const rotation = page.waitForResponse((r) => r.url().endsWith("/rotate") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Putar foto 90 derajat searah jarum jam", exact: true }).click();
+  expect((await rotation).status()).toBe(200);
+  await expect(page.getByRole("status").filter({ hasText: "Menyimpan rotasi foto" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Aktifkan marker foto", exact: true }).click();
   await page.getByRole("button", { name: "Perbesar foto", exact: true }).click();
   await expect(page.getByLabel("Pembesaran foto", { exact: true })).toHaveText("150%");
-  await expect.poll(async () => image.evaluate((el) => getComputedStyle(el.parentElement).transform)).toBe("matrix(0, 1.5, -1.5, 0, 0, 0)");
+  await expect.poll(async () => image.evaluate((el) => getComputedStyle(el.parentElement).transform)).toBe("matrix(1.5, 0, 0, 1.5, 0, 0)");
   box = await image.boundingBox();
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.7);
   await expect(page.locator(".photo-dialog-marker")).toHaveCount(2);
-  const saved = await page.request.get(`${message.photos[0].url}/markers`);
+  const saved = await page.request.get(`${new URL(message.photos[0].url, page.url()).pathname}/markers`);
   const { items } = await saved.json();
   expect(items[0].x).toBeCloseTo(0.25, 1);
-  expect(items[0].y).toBeCloseTo(0.75, 1);
-  expect(items[1].x).toBeCloseTo(0.7, 1);
-  expect(items[1].y).toBeCloseTo(0.4, 1);
+  expect(items[0].y).toBeCloseTo(0.25, 1);
+  expect(items[1].x).toBeCloseTo(0.6, 1);
+  expect(items[1].y).toBeCloseTo(0.7, 1);
   await stage.focus();
   const cursor = page.locator(".photo-dialog-marker-cursor");
   const before = await cursor.boundingBox();
@@ -99,6 +103,85 @@ test("photo markers persist through reload and transformed placement", async ({ 
   await page.reload();
   await page.locator(".message-entry").last().locator(".message-photo-open").click();
   await expect(page.locator(".photo-dialog-marker")).toHaveCount(3);
+});
+
+test("stored photo rotation changes pixels, thumbnails, downloads and reload", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  const message = await send(page);
+  const thumbnail = page.locator(".message-entry").last().locator(".message-photo img");
+  const open = page.locator(".message-entry").last().locator(".message-photo-open");
+  await open.click();
+  const image = page.locator(".photo-dialog-image-layer img");
+  const pixels = (locator) => locator.evaluate((img) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const context = canvas.getContext("2d");
+    context.drawImage(img, 0, 0);
+    return Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data);
+  });
+  await expect(image).toBeVisible();
+  const before = await pixels(image);
+  const response = page.waitForResponse((r) => r.url().endsWith("/rotate") && r.request().method() === "POST");
+  const rotate = page.getByRole("button", { name: /Putar foto/ });
+  await rotate.click();
+  const result = await response;
+  expect(result.request().postDataJSON()).toEqual({ degrees: 90, sha256: message.photos[0].sha256 });
+  expect(result.status()).toBe(200);
+  const updated = await result.json();
+  expect(updated.sha256).not.toBe(message.photos[0].sha256);
+  expect(updated.url).toContain(updated.sha256);
+  await expect(rotate).toBeEnabled();
+  const after = await pixels(image);
+  expect(after).not.toEqual(before);
+  const expected = new Array(before.length);
+  for (let y = 0; y < 80; y++) for (let x = 0; x < 80; x++) {
+    for (let channel = 0; channel < 4; channel++) expected[(x * 80 + 79 - y) * 4 + channel] = before[(y * 80 + x) * 4 + channel];
+  }
+  expect(after).toEqual(expected);
+  const download = await page.locator(".photo-dialog-download").evaluate(async (link) => Array.from(new Uint8Array(await (await fetch(link.href)).arrayBuffer())));
+  expect(createHash("sha256").update(Buffer.from(download)).digest("hex")).toBe(updated.sha256);
+  await page.keyboard.press("Escape");
+  await expect.poll(() => pixels(thumbnail)).toEqual(after);
+  await open.click();
+  await expect(image).toBeVisible();
+  expect(await pixels(image)).toEqual(after);
+  await page.reload();
+  await open.click();
+  await expect(image).toBeVisible();
+  expect(await pixels(image)).toEqual(after);
+});
+
+test("rotation locks duplicate writes and preserves photo on failure", async ({ page }) => {
+  await login(page);
+  await choose(page);
+  await page.locator("#message-photos").setInputFiles(await photo(page));
+  await send(page);
+  await page.locator(".message-entry").last().locator(".message-photo-open").click();
+  const image = page.locator(".photo-dialog-image-layer img");
+  await expect(image).toBeVisible();
+  const original = await image.getAttribute("src");
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  let calls = 0;
+  await page.route("**/rotate", async (route) => {
+    calls++;
+    await gate;
+    await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "internal_error" } }) });
+  });
+  const rotate = page.getByRole("button", { name: /Putar foto/ });
+  await rotate.click();
+  await expect(rotate).toBeDisabled();
+  await page.keyboard.press("r");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Foto berikutnya/ })).toBeDisabled();
+  release();
+  await expect(page.getByText("Server belum dapat menyelesaikan permintaan. Coba lagi sebentar.")).toBeVisible();
+  await expect(rotate).toBeEnabled();
+  expect(calls).toBe(1);
+  await expect(image).toHaveAttribute("src", original);
 });
 
 test("inline coating machine is selectable with shared coating photo", async ({ page }) => {
@@ -151,13 +234,15 @@ test("machine conversation persists exact text, photos, both, and historical arc
   await expect(dialogImg).toBeVisible();
   const rotateBtn = page.getByRole("button", { name: /Putar foto/ });
   await expect(rotateBtn).toBeVisible();
+  const rotatedResponse = page.waitForResponse((r) => r.url().endsWith("/rotate") && r.request().method() === "POST");
   await rotateBtn.click();
-  await expect(dialogImg).toHaveAttribute("style", /rotate\(90deg\)/);
-  await page.keyboard.press("r");
-  await expect(dialogImg).toHaveAttribute("style", /rotate\(180deg\)/);
-  const resetBtn = page.getByRole("button", { name: /Atur ulang/ });
-  await resetBtn.click();
-  await expect(dialogImg).toHaveAttribute("style", /rotate\(0deg\)/);
+  expect((await rotatedResponse).status()).toBe(200);
+  await expect(rotateBtn).toBeEnabled();
+  const reverseResponse = page.waitForResponse((r) => r.url().endsWith("/rotate") && r.request().method() === "POST");
+  await page.keyboard.press("Shift+r");
+  expect((await reverseResponse).request().postDataJSON().degrees).toBe(-90);
+  await expect(rotateBtn).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Atur ulang/ })).toBeDisabled();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await open.click();

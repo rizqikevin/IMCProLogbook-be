@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { advanceSession, connectMessages, request, requestPhoto } from "./api";
+import { advanceSession, connectMessages, photoPath, request, requestPhoto, rotatePhoto } from "./api";
 
 afterEach(() => { advanceSession(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -26,6 +26,30 @@ it("fetches both historical and message photos with authentication", async () =>
     expect(fetch.mock.lastCall[1].credentials).toBe("include");
   }
   expect(() => requestPhoto("https://other.test/api/v1/photos/photo")).toThrow("Alamat foto tidak valid.");
+});
+
+it("rotates stored photos using an unversioned path and the current hash", async () => {
+  vi.stubGlobal("window", { location: { origin: "https://logbook.test" } });
+  const updated = { id: "photo", sha256: "new", url: "/api/v1/logbooks/book/photos/photo?v=new" };
+  const fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => updated });
+  vi.stubGlobal("fetch", fetch);
+  for (const path of ["/api/v1/logbooks/book/photos/photo", "/api/v1/machines/1/messages/message/photos/photo"]) {
+    expect(await rotatePhoto({ url: `${path}?v=old`, sha256: "old" }, -90)).toEqual(updated);
+    expect(fetch.mock.lastCall[0]).toBe(`${path}/rotate`);
+    expect(JSON.parse(fetch.mock.lastCall[1].body)).toEqual({ degrees: -90, sha256: "old" });
+    expect(fetch.mock.lastCall[1].method).toBe("POST");
+    expect(fetch.mock.lastCall[1].credentials).toBe("include");
+    expect(photoPath(`${path}?v=old`)).toBe(path.slice(7));
+  }
+  expect(() => photoPath("https://other.test/api/v1/photos/photo")).toThrow("Alamat foto tidak valid.");
+});
+
+it("reports stale rotation without retrying writes", async () => {
+  vi.stubGlobal("window", { location: { origin: "https://logbook.test" } });
+  const fetch = vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: { code: "conflict" } }) });
+  vi.stubGlobal("fetch", fetch);
+  await expect(rotatePhoto({ url: "/api/v1/logbooks/book/photos/photo?v=old", sha256: "old" }, 90)).rejects.toThrow("Foto sudah berubah");
+  expect(fetch).toHaveBeenCalledOnce();
 });
 
 it("authenticates by frame, sends over socket, and never retries uncertain sends", async () => {

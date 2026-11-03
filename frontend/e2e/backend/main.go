@@ -70,11 +70,27 @@ func run() error {
 		return err
 	}
 	defer os.RemoveAll(directory)
-	store, err := storage.NewLocal(directory)
-	if err != nil {
-		return err
+	var store storage.Store
+	if endpoint := os.Getenv("TEST_S3_ENDPOINT"); endpoint != "" {
+		parsed, err := url.Parse(endpoint)
+		if err != nil || (parsed.Hostname() != "127.0.0.1" && parsed.Hostname() != "localhost") {
+			return fmt.Errorf("TEST_S3_ENDPOINT must use an isolated loopback service")
+		}
+		store, err = storage.NewS3(ctx, storage.S3Config{
+			Bucket: os.Getenv("TEST_S3_BUCKET"), Region: "us-east-1",
+			Endpoint: endpoint, PathStyle: true, KeyPrefix: schema,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		local, err := storage.NewLocal(directory)
+		if err != nil {
+			return err
+		}
+		defer local.Close()
+		store = local
 	}
-	defer store.Close()
 	repo := repository.New(pool)
 	auth := service.NewAuth(repo, 30*24*time.Hour)
 	for _, role := range []string{"operator", "admin"} {
