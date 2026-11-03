@@ -17,6 +17,10 @@ Dalam mode lokal, foto disimpan dalam Docker volume `uploads` dan metadata dalam
 `db_data`. Buka `http://localhost:18472`. Rebuild/restart tidak menghapus kedua volume.
 Jangan jalankan `docker compose down -v` jika ingin mempertahankan data.
 
+Untuk deployment otomatis setelah CI `main` sukses, lihat
+[Continuous deployment VPS](continuous-deployment.md). Runner produksi memakai
+environment approval dan mempertahankan nama project serta volume yang sama.
+
 Frontend mendengarkan port 18472. Backend memakai port 18473 di jaringan Docker
 (`app:18473`), tanpa port publik; frontend meneruskan `/api` ke backend tersebut.
 

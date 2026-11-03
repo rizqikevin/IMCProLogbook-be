@@ -20,6 +20,7 @@ jobs:
       TEST_DATABASE_URL: postgres://logbook_test:logbook_test_only@localhost:5432/logbook_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
+      - run: bash -n scripts/deploy.sh && python3 scripts/deploy_test.py
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -43,3 +44,23 @@ jobs:
       - run: npm run test:e2e
         working-directory: frontend
       - run: docker build -t machine-logbook-web:ci ./frontend
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'rizqikevin/IMCProLogbook-be'
+    runs-on: [self-hosted, Linux, imcpro-production]
+    environment: production
+    concurrency:
+      group: imcpro-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Deploy tested commit
+        env:
+          TESTED_SHA: ${{ github.sha }}
+        run: bash scripts/deploy.sh "$TESTED_SHA"
