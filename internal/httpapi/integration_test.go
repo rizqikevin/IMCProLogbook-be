@@ -295,7 +295,7 @@ func TestIntegrationArchiveHTTPWorkflow(t *testing.T) {
 		if photo.PageNumber != i+1 || photo.Size != int64(len(data)) || photo.SHA256 != hex.EncodeToString(hash[:]) || photo.UploadedBy != operator.User.ID {
 			t.Fatalf("photo order or metadata changed at page %d: %+v", i+1, photo)
 		}
-		if photo.URL != bookURL+"/photos/"+photo.ID {
+		if photo.URL != bookURL+"/photos/"+photo.ID+"?v="+photo.SHA256 {
 			t.Fatalf("incorrect protected photo URL: %s", photo.URL)
 		}
 		get := app.request(http.MethodGet, photo.URL, operator.AccessToken, "", nil)

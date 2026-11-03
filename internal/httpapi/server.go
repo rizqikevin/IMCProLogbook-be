@@ -73,6 +73,7 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("PATCH /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.editMessage)))
 	mux.Handle("DELETE /api/v1/machines/{machineID}/messages/{messageID}", s.authenticated(http.HandlerFunc(s.deleteMessage)))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}", s.authenticated(http.HandlerFunc(s.messagePhoto)))
+	mux.Handle("POST /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/rotate", s.authenticated(s.upload(http.HandlerFunc(s.rotatePhoto))))
 	mux.Handle("GET /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/markers", s.authenticated(http.HandlerFunc(s.listPhotoMarkers)))
 	mux.Handle("POST /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/markers", s.authenticated(http.HandlerFunc(s.addPhotoMarker)))
 	mux.Handle("DELETE /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/markers/{markerID}", s.authenticated(http.HandlerFunc(s.deletePhotoMarker)))
@@ -84,6 +85,7 @@ func New(logbooks *service.Logbooks, auth *service.Auth, opts Options) http.Hand
 	mux.Handle("POST /api/v1/logbooks/{logbookID}/photos/{photoID}/markers", s.authenticated(http.HandlerFunc(s.addPhotoMarker)))
 	mux.Handle("DELETE /api/v1/logbooks/{logbookID}/photos/{photoID}/markers/{markerID}", s.authenticated(http.HandlerFunc(s.deletePhotoMarker)))
 	mux.Handle("GET /api/v1/logbooks/{id}/photos/{photoID}", s.authenticated(http.HandlerFunc(s.photo)))
+	mux.Handle("POST /api/v1/logbooks/{logbookID}/photos/{photoID}/rotate", s.authenticated(s.upload(http.HandlerFunc(s.rotatePhoto))))
 	mux.Handle("DELETE /api/v1/logbooks/{id}", s.authenticated(s.admin(http.HandlerFunc(s.delete))))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		problem(w, r, http.StatusNotFound, "not_found", "endpoint not found")

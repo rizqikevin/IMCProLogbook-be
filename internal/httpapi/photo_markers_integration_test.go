@@ -25,7 +25,8 @@ func TestIntegrationPhotoMarkersPermissionsAndPersistence(t *testing.T) {
 		} else {
 			photo = decodeBody[domain.Message](t, response).Photos[0]
 		}
-		endpoint := photo.URL + "/markers"
+		photoPath, _, _ := strings.Cut(photo.URL, "?")
+		endpoint := photoPath + "/markers"
 		requireStatus(t, app.request("GET", endpoint, "", "", nil), 401)
 		listing := app.request("GET", endpoint, reader.AccessToken, "", nil)
 		requireStatus(t, listing, 200)

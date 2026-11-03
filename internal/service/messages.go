@@ -187,6 +187,7 @@ func withMessagePhotoURLs(message domain.Message) domain.Message {
 		} else {
 			message.Photos[i].URL = messagePhotoURL(message.MachineID, message.ID, message.Photos[i].ID)
 		}
+		message.Photos[i].URL = versionPhotoURL(message.Photos[i].URL, message.Photos[i].SHA256)
 	}
 	return message
 }
@@ -203,7 +204,7 @@ func (s *Logbooks) OpenMessagePhoto(ctx context.Context, machineID int64, messag
 	if err != nil {
 		return domain.Photo{}, nil, fmt.Errorf("open message photo: %w", err)
 	}
-	photo.URL = messagePhotoURL(machineID, messageID, photoID)
+	photo.URL = versionPhotoURL(messagePhotoURL(machineID, messageID, photoID), photo.SHA256)
 	return photo, reader, nil
 }
 

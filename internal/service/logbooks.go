@@ -45,6 +45,7 @@ type Repository interface {
 	Get(context.Context, string) (domain.Logbook, error)
 	List(context.Context, domain.Filter) ([]domain.Logbook, error)
 	Photo(context.Context, string, string) (domain.Photo, error)
+	ReplaceRotatedPhoto(context.Context, domain.User, int64, string, string, domain.Photo, domain.Photo, int) (domain.Photo, error)
 	Delete(context.Context, string) error
 	PendingDeletions(context.Context, int) ([]string, error)
 	CompleteDeletion(context.Context, string) error
@@ -237,7 +238,7 @@ func (s *Logbooks) OpenPhoto(ctx context.Context, bookID, photoID string) (domai
 	if err != nil {
 		return domain.Photo{}, nil, fmt.Errorf("open photo: %w", err)
 	}
-	photo.URL = photoURL(bookID, photo.ID)
+	photo.URL = versionPhotoURL(photoURL(bookID, photo.ID), photo.SHA256)
 	return photo, reader, nil
 }
 
@@ -386,7 +387,7 @@ func validUUID(value string) bool {
 
 func withPhotoURLs(book domain.Logbook) domain.Logbook {
 	for index := range book.Photos {
-		book.Photos[index].URL = photoURL(book.ID, book.Photos[index].ID)
+		book.Photos[index].URL = versionPhotoURL(photoURL(book.ID, book.Photos[index].ID), book.Photos[index].SHA256)
 	}
 	return book
 }

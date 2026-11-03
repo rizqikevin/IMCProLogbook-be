@@ -159,7 +159,7 @@ func TestCreateReservesBeforeStorageAndPublishesCompleteBatch(t *testing.T) {
 	if !reflect.DeepEqual(events, []string{"reserve", "put", "put", "create"}) {
 		t.Fatalf("unexpected operations: %v", events)
 	}
-	if book.Photos[0].URL != "/api/v1/logbooks/"+book.ID+"/photos/"+book.Photos[0].ID {
+	if book.Photos[0].URL != "/api/v1/logbooks/"+book.ID+"/photos/"+book.Photos[0].ID+"?v="+book.Photos[0].SHA256 {
 		t.Fatalf("missing authenticated photo URL: %q", book.Photos[0].URL)
 	}
 }

@@ -881,6 +881,87 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {description: Only photo uploader or admin may delete markers}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/logbooks/{logbookID}/photos/{photoID}/rotate:
+    parameters:
+      - {name: logbookID, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: photoID, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      summary: Persistently rotate photo pixels as uploader or admin
+      description: |
+        Positive degrees rotate clockwise. JPEG EXIF orientation is normalized first.
+        JPEG remains JPEG; PNG remains PNG; static WebP is decoded and saved as PNG.
+        Animated images and PNG/WebP EXIF metadata are rejected. Invalid images and
+        input/output byte or decoded pixel limit violations return 400.
+        Metadata is removed by re-encoding. Marker coordinates rotate atomically.
+        Supply current sha256; concurrent replacement returns 409. Failed writes or
+        database replacement preserve original photo. New object is reserved before
+        writing; old object is queued for cleanup only after committed replacement.
+        Returned URL includes a SHA-based v query parameter. Remove query parameters
+        before appending /rotate or /markers to a photo URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [degrees, sha256]
+              properties:
+                degrees: {type: integer, enum: [90, -90, 180]}
+                sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+      responses:
+        '200':
+          description: Updated persisted photo
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Photo'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may rotate}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Photo changed; reload before retrying}
+        '415': {description: Use application/json}
+  /api/v1/machines/{machineID}/messages/{messageID}/photos/{photoID}/rotate:
+    parameters:
+      - {name: machineID, in: path, required: true, schema: {type: integer, minimum: 1}}
+      - {name: messageID, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: photoID, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      summary: Persistently rotate photo pixels as uploader or admin
+      description: |
+        Positive degrees rotate clockwise. JPEG EXIF orientation is normalized first.
+        JPEG remains JPEG; PNG remains PNG; static WebP is decoded and saved as PNG.
+        Animated images and PNG/WebP EXIF metadata are rejected. Invalid images and
+        input/output byte or decoded pixel limit violations return 400.
+        Metadata is removed by re-encoding. Marker coordinates rotate atomically.
+        Supply current sha256; concurrent replacement returns 409. Failed writes or
+        database replacement preserve original photo. New object is reserved before
+        writing; old object is queued for cleanup only after committed replacement.
+        Returned URL includes a SHA-based v query parameter. Remove query parameters
+        before appending /rotate or /markers to a photo URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [degrees, sha256]
+              properties:
+                degrees: {type: integer, enum: [90, -90, 180]}
+                sha256: {type: string, pattern: '^[a-f0-9]{64}$'}
+      responses:
+        '200':
+          description: Updated persisted photo
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Photo'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {description: Only photo uploader or admin may rotate}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Photo changed; reload before retrying}
+        '415': {description: Use application/json}
 components:
   securitySchemes:
     cookieAuth:
