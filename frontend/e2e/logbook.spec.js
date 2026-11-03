@@ -2,6 +2,8 @@ import { test as base, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { createHash } from "node:crypto";
 
+const messageSockets = new WeakMap();
+
 const test = base.extend({
   operatorSession: [async ({ browser }, use, workerInfo) => {
     const context = await browser.newContext({ baseURL: workerInfo.project.use.baseURL });
@@ -21,6 +23,11 @@ const test = base.extend({
   }, { scope: "worker" }],
   page: async ({ page, operatorSession }, use) => {
     await page.context().addCookies(operatorSession);
+    page.on("websocket", (socket) => {
+      if (/\/machines\/\d+\/messages\/ws$/.test(new URL(socket.url()).pathname)) {
+        messageSockets.set(page, socket);
+      }
+    });
     await use(page);
   },
 });
@@ -51,12 +58,36 @@ async function photo(page) {
   return { name: "test.png", mimeType: "image/png", buffer: Buffer.from(data, "base64") };
 }
 async function send(page) {
-  const response = page.waitForResponse((r) => /\/machines\/\d+\/messages$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
-  await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
-  const result = await response;
-  expect(result.status()).toBe(201);
+  let message;
+  if (await page.locator(".composer-photos img").count()) {
+    const response = page.waitForResponse((r) => /\/machines\/\d+\/messages$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
+    await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
+    const result = await response;
+    expect(result.status()).toBe(201);
+    message = await result.json();
+  } else {
+    await expect(page.getByRole("status").filter({ hasText: /Menyambungkan realtime|Koneksi realtime terputus/ })).toHaveCount(0);
+    const socket = messageSockets.get(page);
+    const text = await page.locator("#message-text").inputValue();
+    let requestId;
+    const sent = socket.waitForEvent("framesent", (payload) => {
+      const event = JSON.parse(String(payload));
+      if (event.type !== "send" || event.text !== text) return false;
+      requestId = event.request_id;
+      return true;
+    });
+    const received = socket.waitForEvent("framereceived", (payload) => {
+      const event = JSON.parse(String(payload));
+      return (event.type === "ack" || event.type === "error") && event.request_id === requestId;
+    });
+    await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
+    await sent;
+    const event = JSON.parse(String((await received).payload));
+    expect(event.type).toBe("ack");
+    message = event.message;
+  }
   await expect(page.getByRole("status").filter({ hasText: "Pesan terkirim." })).toBeVisible();
-  return result.json();
+  return message;
 }
 
 test("photo markers persist through reload and transformed placement", async ({ page }) => {
@@ -331,7 +362,7 @@ test("loading, empty, failure retry and older pagination preserve ascending orde
   await accessible(page);
 });
 
-test("submission stays with its machine during navigation and prevents double send", async ({ page }) => {
+test("photo submission stays with its machine during navigation and prevents double send", async ({ page }) => {
   await login(page); await choose(page);
   let release;
   let posts = 0;
@@ -343,6 +374,7 @@ test("submission stays with its machine during navigation and prevents double se
     return route.continue();
   });
   await page.getByLabel("Pesan untuk MAILENDER 222").fill("Pengiriman saat berpindah mesin");
+  await page.locator("#message-photos").setInputFiles(await photo(page));
   const response = page.waitForResponse((r) => r.url().endsWith("/machines/1/messages") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Kirim pesan", exact: true }).click();
   await expect(page.getByRole("button", { name: "Mengirim pesan", exact: true })).toBeDisabled();
