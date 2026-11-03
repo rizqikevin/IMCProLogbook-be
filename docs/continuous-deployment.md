@@ -37,6 +37,15 @@ Sebelum mengaktifkan runner:
    tidak menyediakan isolasi workflow tersebut; workflow lain yang diubah oleh
    maintainer tepercaya masih dapat menjadwalkan job pada runner ini.
 
+Host ini memakai service systemd user `imcpro-actions-runner.service` milik `robot`,
+direktori `/home/robot/actions-runner-imcpro`, dengan linger yang sudah aktif.
+Service enabled, restart otomatis, dan `UMask=0077`; runner memperbarui dirinya
+otomatis. Tidak ada akun baru atau akses sudo tambahan. Akun `robot` sudah memiliki
+akses Docker dan `.env`; ini bukan akun deploy terisolasi. Kelola service dengan
+`systemctl --user status imcpro-actions-runner.service` sebagai `robot`.
+Project produksi teridentifikasi dari label container: `imcprologbook-be`, disimpan
+di `.cd/project` mode privat. Jangan mengganti nama project saat deploy.
+
 ## Approval
 
 Environment `production` dikonfigurasi melalui API GitHub dengan required reviewer
